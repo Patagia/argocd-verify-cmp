@@ -1,0 +1,12 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ConfigManagementPlugin
+metadata:
+  name: cosign-verified-manifests
+spec:
+  version: v1.0
+  init:
+    command: [/usr/local/bin/verify-cmp, init]
+  generate:
+    command: [/usr/local/bin/verify-cmp, generate]
+  discover:
+    fileName: "*.yaml"

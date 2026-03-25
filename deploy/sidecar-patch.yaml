@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-repo-server
+  namespace: argocd
+spec:
+  template:
+    spec:
+      containers:
+        - name: cosign-verified-manifests
+          image: registry.internal.example.com/verify-cmp:v1.0.0
+          command: [/var/run/argocd/argocd-cmp-server]
+          env:
+            - name: VERIFY_CMP_CONFIG
+              value: /etc/verify-cmp/config.yaml
+            - name: DOCKER_CONFIG
+              value: /etc/docker
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 999
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: var-files
+              mountPath: /var/run/argocd
+            - name: plugins
+              mountPath: /home/argocd/cmp-server/plugins
+            - name: cmp-tmp
+              mountPath: /tmp
+            - name: cosign-pub-key
+              mountPath: /etc/cosign
+              readOnly: true
+            - name: verify-cmp-config
+              mountPath: /etc/verify-cmp
+              readOnly: true
+            - name: registry-creds
+              mountPath: /etc/docker
+              readOnly: true
+            - name: registry-ca
+              mountPath: /etc/verify-cmp/ca.crt
+              subPath: ca.crt
+              readOnly: true
+      volumes:
+        - name: cosign-pub-key
+          secret:
+            secretName: cosign-pub-key
+        - name: verify-cmp-config
+          configMap:
+            name: verify-cmp-config
+        - name: registry-creds
+          secret:
+            secretName: verify-cmp-registry-creds
+            items:
+              - key: .dockerconfigjson
+                path: config.json
+        - name: registry-ca
+          configMap:
+            name: verify-cmp-registry-ca
+            optional: true
+        - name: cmp-tmp
+          emptyDir: {}

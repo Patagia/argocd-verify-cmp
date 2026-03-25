@@ -1,0 +1,29 @@
+verification:
+  mode: key
+  key:
+    path: /etc/cosign/cosign.pub
+  kms:
+    ref: hashicorp://vault/transit/keys/cosign
+  additionalKeys:
+    - /etc/cosign/cosign-old.pub
+  allowedRegistries:
+    - registry.internal.example.com
+
+registry:
+  dockerConfigPath: /etc/docker/config.json
+  tls:
+    insecure: false
+    caCertPath: /etc/verify-cmp/ca.crt
+    skipVerify: false
+
+referrers:
+  manifestMediaType: application/vnd.acme.k8s-manifests.v1+tar
+  extractDir: /tmp/manifests
+  enableTagFallback: true
+  # If the source ref's artifactType matches manifestMediaType, it is treated as
+  # a standalone bundle and extracted directly (no referrers query needed).
+  # Otherwise the source is treated as the app image and referrers are queried.
+
+airgap:
+  skipTlog: true
+  tufRoot: /etc/verify-cmp/tuf
