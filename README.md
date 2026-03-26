@@ -42,7 +42,6 @@ referrers:
 
 airgap:
   skipTlog: false            # set true to skip Rekor transparency log
-  tufRoot: ""
 ```
 
 **KMS mode** (AWS KMS, GCP KMS, or HashiCorp Vault) is selected by setting `verification.mode: kms` and providing a KMS key reference in `verification.kms.ref`.

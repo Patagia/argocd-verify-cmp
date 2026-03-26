@@ -26,4 +26,3 @@ referrers:
 
 airgap:
   skipTlog: true
-  tufRoot: /etc/verify-cmp/tuf

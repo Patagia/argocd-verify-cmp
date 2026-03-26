@@ -119,8 +119,6 @@ referrers:
 airgap:
   # Skip Rekor transparency log checks
   skipTlog: true
-  # Pre-seeded TUF root directory (empty string = use cosign default)
-  tufRoot: /etc/verify-cmp/tuf
 ```
 
 ## Dependencies
