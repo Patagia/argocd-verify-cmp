@@ -333,7 +333,7 @@ MultiVerifier holds []Verifier
 ### Containerfile
 
 ```dockerfile
-FROM golang:1.22-alpine AS builder
+FROM golang:1.26-alpine AS builder
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download

@@ -27,11 +27,13 @@
             # Integration test tools
             cosign
             oras
-            (bats.withLibraries (p: [ p.bats-support p.bats-assert ]))
+            (bats.withLibraries (p: [
+              p.bats-support
+              p.bats-assert
+            ]))
 
             # Utilities used in test scripts
             apacheHttpd # provides htpasswd (bcrypt-capable; Zot requires bcrypt)
-            openssl
             jq
           ];
 
