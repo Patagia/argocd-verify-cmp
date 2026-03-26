@@ -53,7 +53,7 @@ argocd-verify-cmp/
 │   └── manifest/
 │       └── manifest.go          # Walk dir, concat YAML/JSON, output to stdout
 ├── deploy/
-│   ├── Dockerfile               # Distroless/static base + verify-cmp binary
+│   ├── Containerfile            # Distroless/static base + verify-cmp binary
 │   ├── plugin.yaml              # CMP plugin config
 │   ├── kustomization.yaml       # Patch for argocd-repo-server
 │   └── sidecar-patch.yaml       # Sidecar container + volume mounts
@@ -330,7 +330,7 @@ MultiVerifier holds []Verifier
 
 ## Deployment
 
-### Dockerfile
+### Containerfile
 
 ```dockerfile
 FROM golang:1.22-alpine AS builder

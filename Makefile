@@ -14,7 +14,7 @@ lint:
 	golangci-lint run ./...
 
 docker:
-	docker build -f deploy/Dockerfile -t $(IMAGE) .
+	docker build -f deploy/Containerfile -t $(IMAGE) .
 
 clean:
 	rm -rf bin/

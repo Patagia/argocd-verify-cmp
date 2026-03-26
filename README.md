@@ -92,7 +92,7 @@ make build
 make docker
 ```
 
-The Dockerfile uses a multi-stage build: a `golang:1.26-alpine` builder followed by a minimal `cgr.dev/chainguard/static` runtime image. The binary runs as non-root (UID 999).
+The Containerfile uses a multi-stage build: a `golang:1.26-alpine` builder followed by a minimal `cgr.dev/chainguard/static` runtime image. The binary runs as non-root (UID 999).
 
 ### Deploying to ArgoCD
 
