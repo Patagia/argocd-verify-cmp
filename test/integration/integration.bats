@@ -113,8 +113,8 @@ setup() {
 @test "subpath_scoping" {
   local bundle_dir; bundle_dir="$(mktemp -d)"
   mkdir -p "$bundle_dir/overlays/production"
-  echo "kind: Kustomization" > "$bundle_dir/overlays/production/kustomization.yaml"
-  echo "kind: Root"          > "$bundle_dir/root.yaml"
+  echo "kind: ConfigMap" > "$bundle_dir/overlays/production/configmap.yaml"
+  echo "kind: Secret"    > "$bundle_dir/root.yaml"
 
   local bundle_tar; bundle_tar="$(mktemp)"
   tar cf "$bundle_tar" -C "$bundle_dir" . 2>/dev/null
@@ -132,8 +132,38 @@ setup() {
 
   run run_generate "$CFG" "overlays/production"
   assert_success
-  assert_output --partial "Kustomization"
-  refute_output --partial "Root"
+  assert_output --partial "ConfigMap"
+  refute_output --partial "Secret"
+}
+
+# ── 11: bundle with manifests under a subdirectory ───────────────────────────
+
+@test "bundle_manifest_subdir" {
+  local bundle_dir; bundle_dir="$(mktemp -d)"
+  mkdir -p "$bundle_dir/app"
+  echo "kind: Deployment" > "$bundle_dir/app/deploy.yaml"
+  echo "kind: Service"    > "$bundle_dir/app/service.yaml"
+  echo "kind: ConfigMap"  > "$bundle_dir/other.yaml"
+
+  local bundle_tar; bundle_tar="$(mktemp)"
+  tar cf "$bundle_tar" -C "$bundle_dir" . 2>/dev/null
+
+  oras push "$REGISTRY/inttest/subdir:t11" \
+    --artifact-type "application/vnd.test.k8s-manifests.v1+tar" \
+    --plain-http \
+    --disable-path-validation \
+    "$bundle_tar:application/vnd.oci.image.layer.v1.tar" 2>/dev/null
+  sign "inttest/subdir" "t11"
+  rm -rf "$bundle_dir" "$bundle_tar"
+
+  run run_init "inttest/subdir" "t11" "$CFG"
+  assert_success
+
+  run run_generate "$CFG" "app"
+  assert_success
+  assert_output --partial "Deployment"
+  assert_output --partial "Service"
+  refute_output --partial "ConfigMap"
 }
 
 # ── 10: bad auth rejected ─────────────────────────────────────────────────────
