@@ -3,15 +3,12 @@ package verify
 import (
 	"context"
 	"crypto/x509"
-	"encoding/hex"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"os"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/sigstore/cosign/v3/pkg/cosign"
-	sgverify "github.com/sigstore/sigstore-go/pkg/verify"
 )
 
 // CertVerifier verifies cosign signatures against a certificate chain.
@@ -67,36 +64,7 @@ func (v *CertVerifier) Verify(ctx context.Context, ref name.Reference) error {
 		opts.Identities = v.identities
 	}
 
-	sigs, _, err := cosign.VerifyImageSignatures(ctx, ref, &opts)
-	if err == nil {
-		fmt.Fprintf(os.Stderr, "verify-cmp: %d signature(s) verified with certificate %s\n", len(sigs), v.certPath)
-		return nil
-	}
-
-	// Fall back to Sigstore bundle format (application/vnd.dev.sigstore.bundle.v0.3+json)
-	// used by newer cosign CLI versions. VerifyImageSignatures only handles the classic
-	// .sig tag format and the legacy OCI referrer type.
-	var noSigs *cosign.ErrNoSignaturesFound
-	if !errors.As(err, &noSigs) {
-		return fmt.Errorf("signature verification failed (cert %s) (ref: %s): %w", v.certPath, ref.String(), err)
-	}
-
-	bundles, hash, err := cosign.GetBundles(ctx, ref, opts.RegistryClientOpts)
-	if err != nil || len(bundles) == 0 {
-		return fmt.Errorf("signature verification failed (cert %s) (ref: %s): no signatures or bundles found", v.certPath, ref.String())
-	}
-	digestBytes, err := hex.DecodeString(hash.Hex)
-	if err != nil {
-		return fmt.Errorf("decoding image digest: %w", err)
-	}
-	artifactPolicy := sgverify.WithArtifactDigest(hash.Algorithm, digestBytes)
-	for _, bundle := range bundles {
-		if _, verifyErr := cosign.VerifyNewBundle(ctx, &opts, artifactPolicy, bundle); verifyErr == nil {
-			fmt.Fprintf(os.Stderr, "verify-cmp: bundle signature verified with certificate %s\n", v.certPath)
-			return nil
-		}
-	}
-	return fmt.Errorf("signature verification failed (cert %s) (ref: %s): no valid bundle signatures found", v.certPath, ref.String())
+	return verifyWithOpts(ctx, ref, &opts, "certificate "+v.certPath)
 }
 
 // loadCertPool parses all PEM CERTIFICATE blocks in path into a new x509.CertPool.
