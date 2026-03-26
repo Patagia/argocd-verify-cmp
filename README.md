@@ -163,4 +163,4 @@ make lint             # golangci-lint
 make integration-test # full integration suite (setup → run → teardown)
 ```
 
-The integration test suite spins up a local [Zot](https://zotregistry.dev/) OCI registry and runs 10 scenarios covering: signed referrers, standalone bundles, key rotation, registry allowlisting, subpath scoping, and invalid auth rejection.
+The integration test suite spins up a local [Zot](https://zotregistry.dev/) OCI registry and runs scenarios covering: signed referrers, standalone bundles, key rotation, registry allowlisting, subpath scoping, and invalid auth rejection.
