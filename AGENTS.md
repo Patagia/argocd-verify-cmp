@@ -328,6 +328,13 @@ MultiVerifier holds []Verifier
 - No manifests in extract dir → exit 1 from generate
 - KMS unreachable → exit 1, log connection error (important for Vault troubleshooting)
 
+## Version Control
+
+This project uses [Jujutsu (jj)](https://github.com/jj-vcs/jj) as its VCS. Use `jj` commands instead of `git` for all version control operations.
+
+- **Small changes:** record with `jj new -m "<conventional commit message>"` (e.g. `feat:`, `fix:`, `chore:`, `refactor:`)
+- **Large changes or experimentation:** use `jj workspace add` to create an isolated workspace
+
 ## Deployment
 
 ### Containerfile
