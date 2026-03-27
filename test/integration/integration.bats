@@ -1,19 +1,146 @@
 #!/usr/bin/env bats
-# integration.bats — integration tests for verify-cmp.
-# Requires setup.sh to have been run first.
 
 bats_load_library bats-support
 bats_load_library bats-assert
 load helpers
 
-CFG="$FIXTURES/config.gen.yaml"
-CFG_BAD_AUTH="$FIXTURES/config-bad-auth.gen.yaml"
-CFG_ADDL_KEYS="$FIXTURES/config-additional-keys.gen.yaml"
-CFG_DISALLOWED="$FIXTURES/config-disallowed.gen.yaml"
+CFG="$TESTENV/config.gen.yaml"
+CFG_BAD_AUTH="$TESTENV/config-bad-auth.gen.yaml"
+CFG_ADDL_KEYS="$TESTENV/config-additional-keys.gen.yaml"
+CFG_DISALLOWED="$TESTENV/config-disallowed.gen.yaml"
+
+setup_file() {
+  local registry_user="testuser"
+  local registry_pass="testpass"
+
+  mkdir -p "$TESTENV/auth" "$TESTENV/auth-bad" "$TESTENV/manifests"
+
+  htpasswd -bnBC 10 "$registry_user" "$registry_pass" > "$TESTENV/zot-htpasswd"
+
+  podman run -d --name verify-cmp-zot \
+    -p 127.0.0.1:5000:5080 \
+    -v "$BATS_TEST_DIRNAME/zot-config.json:/etc/zot/config.json:ro" \
+    -v "$TESTENV/zot-htpasswd:/etc/zot/htpasswd:ro" \
+    ghcr.io/project-zot/zot-linux-amd64:latest serve /etc/zot/config.json
+
+  for i in $(seq 1 30); do
+    if curl -sf -u "$registry_user:$registry_pass" "http://localhost:5000/v2/" >/dev/null 2>&1; then
+      break
+    fi
+    sleep 1
+    if [[ "$i" -eq 30 ]]; then
+      echo "ERROR: Zot did not become ready in 30s" >&2; return 1
+    fi
+  done
+
+  pushd "$TESTENV" > /dev/null
+  COSIGN_PASSWORD="" cosign generate-key-pair
+  mv cosign.key cosign2.key
+  mv cosign.pub cosign2.pub
+  COSIGN_PASSWORD="" cosign generate-key-pair
+  popd > /dev/null
+
+  local auth_b64; auth_b64="$(printf '%s:%s' "$registry_user" "$registry_pass" | base64 -w0)"
+  local auth_bad; auth_bad="$(printf '%s:%s' "$registry_user" "wrongpass"       | base64 -w0)"
+  printf '{"auths":{"localhost:5000":{"auth":"%s"}}}\n' "$auth_b64" > "$TESTENV/auth/config.json"
+  printf '{"auths":{"localhost:5000":{"auth":"%s"}}}\n' "$auth_bad" > "$TESTENV/auth-bad/config.json"
+
+  cosign signing-config create 2>/dev/null \
+    | jq '.rekorTlogUrls = []' \
+    > "$TESTENV/signing-config.json"
+
+  local f="$TESTENV"
+
+  cat > "$f/config.gen.yaml" <<EOF
+verification:
+  mode: key
+  key:
+    path: $f/cosign.pub
+
+registry:
+  tls:
+    insecure: true
+  dockerConfigPath: $f/auth/config.json
+
+referrers:
+  manifestMediaType: application/vnd.test.k8s-manifests.v1+tar
+  extractDir: $f/manifests
+
+airgap:
+  skipTlog: true
+EOF
+
+  cat > "$f/config-additional-keys.gen.yaml" <<EOF
+verification:
+  mode: key
+  key:
+    path: $f/cosign.pub
+  additionalKeys:
+    - $f/cosign2.pub
+
+registry:
+  tls:
+    insecure: true
+  dockerConfigPath: $f/auth/config.json
+
+referrers:
+  manifestMediaType: application/vnd.test.k8s-manifests.v1+tar
+  extractDir: $f/manifests
+
+airgap:
+  skipTlog: true
+EOF
+
+  cat > "$f/config-bad-auth.gen.yaml" <<EOF
+verification:
+  mode: key
+  key:
+    path: $f/cosign.pub
+
+registry:
+  tls:
+    insecure: true
+  dockerConfigPath: $f/auth-bad/config.json
+
+referrers:
+  manifestMediaType: application/vnd.test.k8s-manifests.v1+tar
+  extractDir: $f/manifests
+
+airgap:
+  skipTlog: true
+EOF
+
+  cat > "$f/config-disallowed.gen.yaml" <<EOF
+verification:
+  mode: key
+  key:
+    path: $f/cosign.pub
+  allowedRegistries:
+    - registry.other.example.com
+
+registry:
+  tls:
+    insecure: true
+  dockerConfigPath: $f/auth/config.json
+
+referrers:
+  manifestMediaType: application/vnd.test.k8s-manifests.v1+tar
+  extractDir: $f/manifests
+
+airgap:
+  skipTlog: true
+EOF
+}
+
+teardown_file() {
+  podman stop verify-cmp-zot 2>/dev/null || true
+  podman rm   verify-cmp-zot 2>/dev/null || true
+  rm -rf "$TESTENV"
+}
 
 setup() {
-  rm -rf /tmp/manifests
-  mkdir -p /tmp/manifests
+  rm -rf "$TESTENV/manifests"
+  mkdir -p "$TESTENV/manifests"
 }
 
 # 1: signed referrer happy path
@@ -80,7 +207,7 @@ setup() {
 
 @test "additional_key_fallback" {
   push_image "inttest/app" "t6"
-  sign "inttest/app" "t6" "$FIXTURES/cosign2.key"
+  sign "inttest/app" "t6" "$TESTENV/cosign2.key"
   attach_bundle "inttest/app" "t6"
 
   run run_init "inttest/app" "t6" "$CFG_ADDL_KEYS"

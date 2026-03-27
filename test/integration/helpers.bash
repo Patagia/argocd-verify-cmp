@@ -10,8 +10,9 @@ REGISTRY_USER="testuser"
 REGISTRY_PASS="testpass"
 BINARY="$REPO_ROOT/bin/verify-cmp"
 FIXTURES="$HELPERS_DIR/fixtures"
+TESTENV="$HELPERS_DIR/.testenv"
 
-export DOCKER_CONFIG="$FIXTURES/auth"
+export DOCKER_CONFIG="$TESTENV/auth"
 
 # OCI helpers
 
@@ -42,10 +43,10 @@ push_bundle() {
 
 # sign REPO TAG [KEY_PATH] — cosign sign with no Rekor, no SCT.
 sign() {
-  local repo=$1 tag=$2 key=${3:-"$FIXTURES/cosign.key"}
+  local repo=$1 tag=$2 key=${3:-"$TESTENV/cosign.key"}
   COSIGN_PASSWORD="" cosign sign \
     --key "$key" \
-    --signing-config "$FIXTURES/signing-config.json" \
+    --signing-config "$TESTENV/signing-config.json" \
     --allow-insecure-registry \
     "$REGISTRY/$repo:$tag" 2>/dev/null
 }

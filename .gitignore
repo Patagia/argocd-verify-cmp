@@ -2,15 +2,7 @@
 bin/
 
 # Integration test generated files (secrets / ephemeral keys)
-test/integration/zot-htpasswd
-test/integration/fixtures/cosign.key
-test/integration/fixtures/cosign.pub
-test/integration/fixtures/cosign2.key
-test/integration/fixtures/cosign2.pub
-test/integration/fixtures/auth/
-test/integration/fixtures/auth-bad/
-test/integration/fixtures/signing-config.json
-test/integration/fixtures/*.gen.yaml
+test/integration/.testenv/
 
 # claude
 .claude

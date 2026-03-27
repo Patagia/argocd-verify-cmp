@@ -20,8 +20,4 @@ clean:
 	rm -rf bin/
 
 integration-test: build
-	test/integration/setup.sh
-	bats test/integration/integration.bats; \
-	  STATUS=$$?; \
-	  test/integration/teardown.sh; \
-	  exit $$STATUS
+	bats test/integration/integration.bats
