@@ -37,7 +37,7 @@ func (anonymousKeychain) Resolve(authn.Resource) (authn.Authenticator, error) {
 	return authn.Anonymous, nil
 }
 
-// ── registry helpers ────────────────────────────────────────────────────────
+// registry helpers
 
 func startRegistry(t *testing.T, withReferrers bool) *httptest.Server {
 	t.Helper()
@@ -68,7 +68,7 @@ func gcrOpts(s *httptest.Server) []gcrremote.Option {
 	}
 }
 
-// ── push helpers ─────────────────────────────────────────────────────────────
+// push helpers
 
 // pushImage pushes a minimal empty OCI image and returns (digest, raw manifest bytes).
 func pushImage(t *testing.T, s *httptest.Server, repo, tag string) (v1.Hash, []byte) {
@@ -206,7 +206,7 @@ func smallTar(t *testing.T) []byte {
 	return buf.Bytes()
 }
 
-// ── ArtifactType tests ───────────────────────────────────────────────────────
+// ArtifactType tests
 
 func TestArtifactType_ContainerImage(t *testing.T) {
 	s := startRegistry(t, false)
@@ -247,7 +247,7 @@ func TestArtifactType_NotFound(t *testing.T) {
 	}
 }
 
-// ── Find tests ───────────────────────────────────────────────────────────────
+// Find tests
 
 func TestFind_OCI11_Discovers(t *testing.T) {
 	s := startRegistry(t, true)

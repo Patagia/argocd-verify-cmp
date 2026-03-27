@@ -16,7 +16,7 @@ setup() {
   mkdir -p /tmp/manifests
 }
 
-# ── 1: signed referrer happy path ────────────────────────────────────────────
+# 1: signed referrer happy path
 
 @test "signed_referrer_happy_path" {
   push_image "inttest/app" "t1"
@@ -32,7 +32,7 @@ setup() {
   assert_output --partial "kind: Service"
 }
 
-# ── 2: standalone bundle happy path ──────────────────────────────────────────
+# 2: standalone bundle happy path
 
 @test "standalone_bundle_happy_path" {
   push_bundle "inttest/bundle" "t2"
@@ -46,7 +46,7 @@ setup() {
   assert_output --partial "kind: Deployment"
 }
 
-# ── 3: unsigned image rejected ────────────────────────────────────────────────
+# 3: unsigned image rejected
 
 @test "unsigned_image_rejected" {
   push_image "inttest/app" "t3"
@@ -55,7 +55,7 @@ setup() {
   assert_failure
 }
 
-# ── 4: no referrer found ──────────────────────────────────────────────────────
+# 4: no referrer found
 
 @test "no_referrer_found" {
   push_image "inttest/app" "t4"
@@ -65,7 +65,7 @@ setup() {
   assert_failure
 }
 
-# ── 5: wrong referrer media type ──────────────────────────────────────────────
+# 5: wrong referrer media type
 
 @test "wrong_referrer_mediatype" {
   push_image "inttest/app" "t5"
@@ -76,7 +76,7 @@ setup() {
   assert_failure
 }
 
-# ── 6: additional key fallback ────────────────────────────────────────────────
+# 6: additional key fallback
 
 @test "additional_key_fallback" {
   push_image "inttest/app" "t6"
@@ -87,7 +87,7 @@ setup() {
   assert_success
 }
 
-# ── 7: non-OCI source passthrough ─────────────────────────────────────────────
+# 7: non-OCI source passthrough
 
 @test "non_oci_source_passthrough" {
   run env \
@@ -98,7 +98,7 @@ setup() {
   assert_success
 }
 
-# ── 8: disallowed registry ────────────────────────────────────────────────────
+# 8: disallowed registry
 
 @test "disallowed_registry" {
   push_image "inttest/app" "t8"
@@ -108,7 +108,7 @@ setup() {
   assert_failure
 }
 
-# ── 9: subpath scoping ────────────────────────────────────────────────────────
+# 9: subpath scoping
 
 @test "subpath_scoping" {
   local bundle_dir; bundle_dir="$(mktemp -d)"
@@ -136,7 +136,7 @@ setup() {
   refute_output --partial "Secret"
 }
 
-# ── 11: bundle with manifests under a subdirectory ───────────────────────────
+# 11: bundle with manifests under a subdirectory
 
 @test "bundle_manifest_subdir" {
   local bundle_dir; bundle_dir="$(mktemp -d)"
@@ -166,7 +166,7 @@ setup() {
   refute_output --partial "ConfigMap"
 }
 
-# ── 10: bad auth rejected ─────────────────────────────────────────────────────
+# 10: bad auth rejected
 
 @test "bad_auth_rejected" {
   push_image "inttest/app" "t10"

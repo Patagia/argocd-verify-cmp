@@ -328,6 +328,20 @@ MultiVerifier holds []Verifier
 - No manifests in extract dir → exit 1 from generate
 - KMS unreachable → exit 1, log connection error (important for Vault troubleshooting)
 
+## Code Style
+
+### Comments
+
+Do not use decorative separator comments with dashes or box-drawing characters (e.g. `# ── Section ───────`). Use plain comments instead:
+
+```bash
+# Good
+# OCI helpers
+
+# Bad
+# ── OCI helpers ───────────────────────────────────────────────────────────────
+```
+
 ## Version Control
 
 This project uses [Jujutsu (jj)](https://github.com/jj-vcs/jj) as its VCS. Use `jj` commands instead of `git` for all version control operations.

@@ -8,7 +8,7 @@ on:
     branches: [main]
 
 jobs:
-  # ── Unit tests + lint ────────────────────────────────────────────────────────
+  # Unit tests + lint
   test:
     runs-on: ubuntu-latest
     steps:
@@ -25,7 +25,7 @@ jobs:
       - name: Unit tests
         run: nix develop --command make test
 
-  # ── Integration tests ────────────────────────────────────────────────────────
+  # Integration tests
   integration-test:
     runs-on: ubuntu-latest
     needs: test
@@ -43,7 +43,7 @@ jobs:
       - name: Integration tests
         run: nix develop --command make integration-test
 
-  # ── Build and push to GHCR ───────────────────────────────────────────────────
+  # Build and push to GHCR
   publish:
     runs-on: ubuntu-latest
     needs: [test, integration-test]

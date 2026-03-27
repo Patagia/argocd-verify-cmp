@@ -13,7 +13,7 @@ FIXTURES="$HELPERS_DIR/fixtures"
 
 export DOCKER_CONFIG="$FIXTURES/auth"
 
-# ── OCI helpers ───────────────────────────────────────────────────────────────
+# OCI helpers
 
 # push_image REPO TAG — push a minimal OCI image (no artifactType).
 push_image() {
@@ -63,7 +63,7 @@ attach_bundle() {
   rm -f "$bundle"
 }
 
-# ── verify-cmp helpers ────────────────────────────────────────────────────────
+# verify-cmp helpers
 
 # run_init REPO TAG CONFIG — invoke verify-cmp init directly.
 run_init() {
