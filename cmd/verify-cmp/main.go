@@ -279,7 +279,19 @@ func buildVerifier(cfg *config.Config, checkOpts *cosign.CheckOpts) (verify.Veri
 		verifiers = append(verifiers, kv)
 	}
 
-	return verify.NewMultiVerifier(verifiers...), nil
+	if len(cfg.Verification.RequiredKeys) == 0 {
+		return verify.NewMultiVerifier(verifiers...), nil
+	}
+
+	all := []verify.Verifier{verify.NewMultiVerifier(verifiers...)}
+	for _, path := range cfg.Verification.RequiredKeys {
+		kv, err := verify.NewKeyVerifier(path, checkOpts)
+		if err != nil {
+			return nil, fmt.Errorf("loading required key: %w", err)
+		}
+		all = append(all, kv)
+	}
+	return verify.NewAllVerifier(all...), nil
 }
 
 // checkAllowedRegistry rejects refs whose registry is not in the allowlist.

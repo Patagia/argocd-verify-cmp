@@ -21,6 +21,7 @@ type VerificationConfig struct {
 	KMS               KMSConfig  `yaml:"kms"`
 	Cert              CertConfig `yaml:"cert"`
 	AdditionalKeys    []string   `yaml:"additionalKeys"`
+	RequiredKeys      []string   `yaml:"requiredKeys"`
 	AllowedRegistries []string   `yaml:"allowedRegistries"`
 }
 

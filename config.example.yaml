@@ -6,6 +6,10 @@ verification:
     ref: hashicorp://vault/transit/keys/cosign
   additionalKeys:
     - /etc/cosign/cosign-old.pub
+  # requiredKeys: AND-logic — ALL listed keys must have signed the image.
+  # Use for multi-party signing (e.g. upstream signature + internal blessing).
+  # requiredKeys:
+  #   - /etc/cosign/internal-blessing.pub
   allowedRegistries:
     - registry.internal.example.com
 
