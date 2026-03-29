@@ -37,9 +37,6 @@ jobs:
           extra_nix_config: |
             experimental-features = nix-command flakes
 
-      - name: Install podman
-        run: sudo apt-get update -qq && sudo apt-get install -y podman uidmap
-
       - name: Integration tests
         run: nix develop --command make integration-test
 

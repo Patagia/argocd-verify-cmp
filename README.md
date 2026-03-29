@@ -147,7 +147,6 @@ The `repoURL` and `targetRevision` fields are passed to the plugin as `ARGOCD_AP
 
 - Go 1.26+
 - `cosign` and `oras` CLIs
-- Docker or Podman (for integration tests)
 
 With [Nix](https://nixos.org/):
 ```bash

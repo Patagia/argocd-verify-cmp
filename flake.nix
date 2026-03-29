@@ -16,6 +16,19 @@
       system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
+        zot = pkgs.stdenv.mkDerivation {
+          name = "zot";
+          src = pkgs.fetchurl {
+            url = "https://github.com/project-zot/zot/releases/download/v2.1.15/zot-linux-amd64";
+            hash = "sha256-a8CsTdz/c1F0tsc45u6cNXmYwjxVRlC+hhNdI3IN3Yw=";
+          };
+          unpackPhase = ":";
+          installPhase = ''
+            mkdir -p $out/bin
+            cp $src $out/bin/zot
+            chmod +x $out/bin/zot
+          '';
+        };
       in
       {
         devShells.default = pkgs.mkShell {
@@ -31,6 +44,7 @@
               p.bats-support
               p.bats-assert
             ]))
+            zot
 
             # Utilities used in test scripts
             apacheHttpd # provides htpasswd (bcrypt-capable; Zot requires bcrypt)

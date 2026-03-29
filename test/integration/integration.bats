@@ -13,15 +13,31 @@ setup_file() {
   local registry_user="testuser"
   local registry_pass="testpass"
 
-  mkdir -p "$TESTENV/auth" "$TESTENV/auth-bad" "$TESTENV/manifests"
+  mkdir -p "$TESTENV/auth" "$TESTENV/auth-bad" "$TESTENV/manifests" "$TESTENV/registry"
 
   htpasswd -bnBC 10 "$registry_user" "$registry_pass" > "$TESTENV/zot-htpasswd"
+  cat > "$TESTENV/zot-config.json" <<EOF
+{
+  "distSpecVersion": "1.1.0",
+  "storage": {
+    "rootDirectory": "$TESTENV/registry"
+  },
+  "http": {
+    "address": "0.0.0.0",
+    "port": "5000",
+    "auth": {
+      "htpasswd": {
+        "path": "$TESTENV/zot-htpasswd"
+      }
+    }
+  },
+  "log": {
+    "level": "warn"
+  }
+}
+EOF
 
-  podman run -d --name verify-cmp-zot \
-    -p 127.0.0.1:5000:5080 \
-    -v "$BATS_TEST_DIRNAME/zot-config.json:/etc/zot/config.json:ro" \
-    -v "$TESTENV/zot-htpasswd:/etc/zot/htpasswd:ro" \
-    ghcr.io/project-zot/zot-linux-amd64:latest serve /etc/zot/config.json
+  zot serve "$TESTENV/zot-config.json" &
 
   for i in $(seq 1 30); do
     if curl -sf -u "$registry_user:$registry_pass" "http://localhost:5000/v2/" >/dev/null 2>&1; then
@@ -133,8 +149,7 @@ EOF
 }
 
 teardown_file() {
-  podman stop verify-cmp-zot 2>/dev/null || true
-  podman rm   verify-cmp-zot 2>/dev/null || true
+  pkill -f zot
   rm -rf "$TESTENV"
 }
 
