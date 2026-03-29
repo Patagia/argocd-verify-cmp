@@ -78,19 +78,31 @@ func Find(
 	if err == nil {
 		manifest, mErr := idx.IndexManifest()
 		if mErr == nil {
+			var found *ocispec.Descriptor
+			var count int
 			for _, m := range manifest.Manifests {
 				at := string(m.ArtifactType)
 				if at == "" {
 					at = string(m.MediaType)
 				}
 				if at == mediaType {
-					return ocispec.Descriptor{
-						MediaType:    string(m.MediaType),
-						ArtifactType: at,
-						Digest:       digestFromGCR(m.Digest),
-						Size:         m.Size,
-					}, nil
+					count++
+					if found == nil {
+						d := ocispec.Descriptor{
+							MediaType:    string(m.MediaType),
+							ArtifactType: at,
+							Digest:       digestFromGCR(m.Digest),
+							Size:         m.Size,
+						}
+						found = &d
+					}
 				}
+			}
+			if found != nil {
+				if count > 1 {
+					fmt.Fprintf(os.Stderr, "verify-cmp: warning: found %d referrers with media type %q; using first\n", count, mediaType)
+				}
+				return *found, nil
 			}
 		}
 		if !enableTagFallback {
@@ -140,6 +152,7 @@ func findViaORASTags(
 	}
 
 	var found ocispec.Descriptor
+	var count int
 	err = repo.Referrers(ctx, subjectDesc, mediaType, func(referrers []ocispec.Descriptor) error {
 		for _, r := range referrers {
 			at := r.ArtifactType
@@ -147,23 +160,25 @@ func findViaORASTags(
 				at = r.MediaType
 			}
 			if at == mediaType {
-				found = r
-				return errStop
+				count++
+				if count == 1 {
+					found = r
+				}
 			}
 		}
 		return nil
 	})
-	if err != nil && err != errStop {
+	if err != nil {
 		return ocispec.Descriptor{}, fmt.Errorf("ORAS tag-based referrer discovery failed: %w", err)
+	}
+	if count > 1 {
+		fmt.Fprintf(os.Stderr, "verify-cmp: warning: found %d referrers with media type %q; using first\n", count, mediaType)
 	}
 	if found.Digest.String() == "" {
 		return ocispec.Descriptor{}, fmt.Errorf("no referrer with media type %q found (tag-based fallback)", mediaType)
 	}
 	return found, nil
 }
-
-// errStop is a sentinel used to stop ORAS iteration early.
-var errStop = fmt.Errorf("stop")
 
 // digestFromGCR converts a gcr digest to an OCI digest string.
 func digestFromGCR(d interface{ String() string }) digest.Digest {

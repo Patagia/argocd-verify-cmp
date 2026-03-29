@@ -320,6 +320,33 @@ func TestFind_OCI11_NoMatchingReferrer(t *testing.T) {
 	}
 }
 
+func TestFind_OCI11_MultipleMatchingReferrers(t *testing.T) {
+	// Two referrers share the same media type — Find should succeed and return
+	// one of them without error (a warning is emitted to stderr).
+	s := startRegistry(t, true)
+	imgDigest, imgRaw := pushImage(t, s, "myrepo", "v1")
+	subjectDesc := &ociDescriptor{
+		MediaType: "application/vnd.oci.image.manifest.v1+json",
+		Digest:    imgDigest.String(),
+		Size:      int64(len(imgRaw)),
+	}
+	buildAndPushArtifact(t, s, "myrepo", testBundleMediaType, subjectDesc, smallTar(t))
+	buildAndPushArtifact(t, s, "myrepo", testBundleMediaType, subjectDesc, smallTar(t))
+
+	ref := regRef(t, s, "myrepo:v1")
+	desc, err := referrers.Find(
+		context.Background(), ref,
+		testBundleMediaType, false,
+		http.DefaultTransport, anonKeychain, "",
+	)
+	if err != nil {
+		t.Fatalf("unexpected error with multiple matching referrers: %v", err)
+	}
+	if desc.ArtifactType != testBundleMediaType {
+		t.Errorf("artifactType = %q, want %q", desc.ArtifactType, testBundleMediaType)
+	}
+}
+
 func TestFind_ReferrersAPIUnsupported_FallbackDisabled(t *testing.T) {
 	// Registry without OCI 1.1 referrers API; fallback disabled → must error.
 	s := startRegistry(t, false)
