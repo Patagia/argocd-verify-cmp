@@ -86,14 +86,6 @@ make build
 # Output: bin/verify-cmp
 ```
 
-### Building the container image
-
-```bash
-make docker
-```
-
-The Containerfile uses a multi-stage build: a `golang:1.26-alpine` builder followed by a minimal `cgr.dev/chainguard/static` runtime image. The binary runs as non-root (UID 999).
-
 ### Deploying to ArgoCD
 
 Install `verify-cmp` as a sidecar to the ArgoCD repo-server using the CMP sidecar pattern. Mount the container image alongside a `plugin.yaml` that declares the `init` and `generate` commands:

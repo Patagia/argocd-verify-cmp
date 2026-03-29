@@ -1,8 +1,7 @@
 BINARY := verify-cmp
 MODULE  := patagia.dev/Patagia/argocd-verify-cmp
-IMAGE   ?= registry.internal.example.com/verify-cmp:dev
 
-.PHONY: build test lint docker clean integration-test
+.PHONY: build test lint clean integration-test
 
 build:
 	CGO_ENABLED=0 go build -o bin/$(BINARY) ./cmd/verify-cmp/
@@ -12,9 +11,6 @@ test:
 
 lint:
 	golangci-lint run ./...
-
-docker:
-	docker build -f deploy/Containerfile -t $(IMAGE) .
 
 clean:
 	rm -rf bin/
