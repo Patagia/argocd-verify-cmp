@@ -56,6 +56,7 @@ func NewAttestationVerifier(
 func (a *AttestationVerifier) Verify(ctx context.Context, ref name.Reference) error {
 	opts := *a.checkOpts
 	opts.ClaimVerifier = cosign.IntotoSubjectClaimVerifier
+	opts.NewBundleFormat = true
 
 	switch a.signingMode {
 	case "key":
@@ -117,33 +118,45 @@ func (a *AttestationVerifier) Verify(ctx context.Context, ref name.Reference) er
 	return fmt.Errorf("no attestation with predicateType %q found (ref: %s)", a.predicateType, ref)
 }
 
-// matchesAttestation reports whether the raw DSSE payload bytes match the given
-// predicateType and all claims (if any). Claims are compared as strings using
-// fmt.Sprint so bool/number predicate fields can be matched from config strings.
+// matchesAttestation reports whether the raw DSSE envelope bytes contain an
+// in-toto statement with the given predicateType and matching claims (if any).
+//
+// att.Payload() returns a DSSE envelope JSON:
+//
+//	{"payloadType":"application/vnd.in-toto+json","payload":"<base64>","signatures":[...]}
+//
+// The base64-decoded payload is the in-toto Statement:
+//
+//	{"_type":"...","predicateType":"<uri>","subject":[...],"predicate":{...}}
+//
+// Claims are compared as strings via fmt.Sprint so bool/number predicate fields
+// can be matched from config string values.
 func matchesAttestation(payload []byte, predicateType string, claims map[string]string) bool {
 	var envelope struct {
-		PayloadType string `json:"payloadType"`
-		Payload     string `json:"payload"`
+		Payload string `json:"payload"` // base64-encoded in-toto Statement
 	}
 	if err := json.Unmarshal(payload, &envelope); err != nil {
 		return false
 	}
-	if envelope.PayloadType != predicateType {
+	statementJSON, err := base64.StdEncoding.DecodeString(envelope.Payload)
+	if err != nil {
+		return false
+	}
+	var statement struct {
+		PredicateType string         `json:"predicateType"`
+		Predicate     map[string]any `json:"predicate"`
+	}
+	if err := json.Unmarshal(statementJSON, &statement); err != nil {
+		return false
+	}
+	if statement.PredicateType != predicateType {
 		return false
 	}
 	if len(claims) == 0 {
 		return true
 	}
-	predicateJSON, err := base64.StdEncoding.DecodeString(envelope.Payload)
-	if err != nil {
-		return false
-	}
-	var predicate map[string]any
-	if err := json.Unmarshal(predicateJSON, &predicate); err != nil {
-		return false
-	}
 	for k, want := range claims {
-		got, ok := predicate[k]
+		got, ok := statement.Predicate[k]
 		if !ok || fmt.Sprint(got) != want {
 			return false
 		}

@@ -6,15 +6,24 @@ import (
 	"testing"
 )
 
+// buildDSSEPayload builds DSSE envelope bytes as returned by att.Payload():
+//
+//	DSSE envelope → base64(in-toto Statement) → predicate
 func buildDSSEPayload(t *testing.T, predicateType string, predicate map[string]any) []byte {
 	t.Helper()
-	predicateJSON, err := json.Marshal(predicate)
+	statement := map[string]any{
+		"_type":         "https://in-toto.io/Statement/v0.1",
+		"predicateType": predicateType,
+		"subject":       []any{},
+		"predicate":     predicate,
+	}
+	statementJSON, err := json.Marshal(statement)
 	if err != nil {
-		t.Fatalf("marshaling predicate: %v", err)
+		t.Fatalf("marshaling statement: %v", err)
 	}
 	envelope := map[string]string{
-		"payloadType": predicateType,
-		"payload":     base64.StdEncoding.EncodeToString(predicateJSON),
+		"payloadType": "application/vnd.in-toto+json",
+		"payload":     base64.StdEncoding.EncodeToString(statementJSON),
 	}
 	data, err := json.Marshal(envelope)
 	if err != nil {
@@ -98,7 +107,7 @@ func TestMatchesAttestation_InvalidJSON(t *testing.T) {
 
 func TestMatchesAttestation_InvalidBase64Payload(t *testing.T) {
 	data, _ := json.Marshal(map[string]string{
-		"payloadType": testPredicateType,
+		"payloadType": "application/vnd.in-toto+json",
 		"payload":     "!!!not-base64!!!",
 	})
 	if matchesAttestation(data, testPredicateType, map[string]string{"approved": "true"}) {

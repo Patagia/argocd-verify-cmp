@@ -64,6 +64,24 @@ attach_bundle() {
   rm -f "$bundle"
 }
 
+# attest REPO TAG [KEY_PATH] [PREDICATE_TYPE] [PREDICATE_JSON]
+# cosign attest with custom predicate and no Rekor.
+attest() {
+  local repo=$1 tag=$2 key=${3:-"$TESTENV/cosign.key"}
+  local pred_type=${4:-"https://example.com/blessing/v1"}
+  local pred_json=${5:-'{"approved":true}'}
+  local pred_file; pred_file="$(mktemp)"
+  echo "$pred_json" > "$pred_file"
+  COSIGN_PASSWORD="" cosign attest \
+    --key "$key" \
+    --signing-config "$TESTENV/signing-config.json" \
+    --predicate "$pred_file" \
+    --type "$pred_type" \
+    --allow-insecure-registry \
+    "$REGISTRY/$repo:$tag" 2>/dev/null
+  rm -f "$pred_file"
+}
+
 # verify-cmp helpers
 
 # run_init REPO TAG CONFIG — invoke verify-cmp init directly.

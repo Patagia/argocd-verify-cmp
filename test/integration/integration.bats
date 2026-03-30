@@ -8,6 +8,8 @@ CFG="$TESTENV/config.gen.yaml"
 CFG_BAD_AUTH="$TESTENV/config-bad-auth.gen.yaml"
 CFG_ADDL_KEYS="$TESTENV/config-additional-keys.gen.yaml"
 CFG_DISALLOWED="$TESTENV/config-disallowed.gen.yaml"
+CFG_ATTESTATION="$TESTENV/config-attestation.gen.yaml"
+CFG_ATTESTATION_CLAIMS="$TESTENV/config-attestation-claims.gen.yaml"
 
 setup_file() {
   local registry_user="testuser"
@@ -119,6 +121,61 @@ registry:
   tls:
     insecure: true
   dockerConfigPath: $f/auth-bad/config.json
+
+referrers:
+  manifestMediaType: application/vnd.test.k8s-manifests.v1+tar
+  extractDir: $f/manifests
+
+airgap:
+  skipTlog: true
+EOF
+
+  cat > "$f/config-attestation.gen.yaml" <<EOF
+verification:
+  mode: key
+  key:
+    path: $f/cosign.pub
+  required:
+    - mode: attestation
+      attestation:
+        predicateType: https://example.com/blessing/v1
+        signingMode: key
+        key:
+          path: $f/cosign.pub
+
+registry:
+  tls:
+    insecure: true
+  dockerConfigPath: $f/auth/config.json
+
+referrers:
+  manifestMediaType: application/vnd.test.k8s-manifests.v1+tar
+  extractDir: $f/manifests
+
+airgap:
+  skipTlog: true
+EOF
+
+  cat > "$f/config-attestation-claims.gen.yaml" <<EOF
+verification:
+  mode: key
+  key:
+    path: $f/cosign.pub
+  required:
+    - mode: attestation
+      attestation:
+        predicateType: https://example.com/blessing/v1
+        signingMode: key
+        key:
+          path: $f/cosign.pub
+        claims:
+          approved: "true"
+          reviewer: ci-bot@example.com
+
+registry:
+  tls:
+    insecure: true
+  dockerConfigPath: $f/auth/config.json
 
 referrers:
   manifestMediaType: application/vnd.test.k8s-manifests.v1+tar
@@ -308,6 +365,67 @@ setup() {
   assert_output --partial "Deployment"
   assert_output --partial "Service"
   refute_output --partial "ConfigMap"
+}
+
+# 12: attestation required — present and valid
+
+@test "attestation_required_present" {
+  push_image "inttest/app" "t12"
+  sign "inttest/app" "t12"
+  attest "inttest/app" "t12"
+  attach_bundle "inttest/app" "t12"
+
+  run run_init "inttest/app" "t12" "$CFG_ATTESTATION"
+  assert_success
+}
+
+# 13: attestation required — missing → rejected
+
+@test "attestation_required_missing" {
+  push_image "inttest/app" "t13"
+  sign "inttest/app" "t13"
+  attach_bundle "inttest/app" "t13"
+
+  run run_init "inttest/app" "t13" "$CFG_ATTESTATION"
+  assert_failure
+}
+
+# 14: attestation required — wrong predicate type → rejected
+
+@test "attestation_wrong_predicate_type" {
+  push_image "inttest/app" "t14"
+  sign "inttest/app" "t14"
+  attest "inttest/app" "t14" "$TESTENV/cosign.key" "https://example.com/other/v1" '{"approved":true}'
+  attach_bundle "inttest/app" "t14"
+
+  run run_init "inttest/app" "t14" "$CFG_ATTESTATION"
+  assert_failure
+}
+
+# 15: attestation with claims — all claims match
+
+@test "attestation_claims_match" {
+  push_image "inttest/app" "t15"
+  sign "inttest/app" "t15"
+  attest "inttest/app" "t15" "$TESTENV/cosign.key" "https://example.com/blessing/v1" \
+    '{"approved":true,"reviewer":"ci-bot@example.com"}'
+  attach_bundle "inttest/app" "t15"
+
+  run run_init "inttest/app" "t15" "$CFG_ATTESTATION_CLAIMS"
+  assert_success
+}
+
+# 16: attestation with claims — claim mismatch → rejected
+
+@test "attestation_claims_mismatch" {
+  push_image "inttest/app" "t16"
+  sign "inttest/app" "t16"
+  attest "inttest/app" "t16" "$TESTENV/cosign.key" "https://example.com/blessing/v1" \
+    '{"approved":false,"reviewer":"ci-bot@example.com"}'
+  attach_bundle "inttest/app" "t16"
+
+  run run_init "inttest/app" "t16" "$CFG_ATTESTATION_CLAIMS"
+  assert_failure
 }
 
 # 10: bad auth rejected
