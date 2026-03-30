@@ -67,6 +67,8 @@ verification:
         issuer: https://token.actions.githubusercontent.com
 ```
 
+`identities` constrains which certificate subjects and issuers are accepted. Each entry may use literal `subject`/`issuer` fields or the `subjectRegExp`/`issuerRegExp` variants. When omitted, any certificate that chains to the root CA is accepted.
+
 **Attestation mode** verifies that a signed cosign attestation (`cosign attest`) with a specific `predicateType` is attached. Optionally asserts top-level predicate fields via `claims`. Attestation verifiers can appear in `additional` (OR chain) or `required` (AND chain) and support all signing modes (`key`, `kms`, `cert`):
 
 ```yaml
@@ -85,8 +87,6 @@ verification:
           approved: "true"
           reviewer: ci-bot@example.com
 ```
-
-`identities` constrains which certificate subjects and issuers are accepted. Each entry may use literal `subject`/`issuer` fields or the `subjectRegExp`/`issuerRegExp` variants. When omitted, any certificate that chains to the root CA is accepted.
 
 See `config.example.yaml` for a fully annotated example.
 
