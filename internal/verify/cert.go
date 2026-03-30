@@ -44,7 +44,7 @@ func NewCertVerifier(certPath, intermediateCertsPath string, identities []cosign
 }
 
 func (v *CertVerifier) Verify(ctx context.Context, ref name.Reference) error {
-	rootPool, err := loadCertPool(v.certPath)
+	rootPool, err := LoadCertPool(v.certPath)
 	if err != nil {
 		return err
 	}
@@ -53,7 +53,7 @@ func (v *CertVerifier) Verify(ctx context.Context, ref name.Reference) error {
 	opts.RootCerts = rootPool
 
 	if v.intermediateCertsPath != "" {
-		intermediatePool, err := loadCertPool(v.intermediateCertsPath)
+		intermediatePool, err := LoadCertPool(v.intermediateCertsPath)
 		if err != nil {
 			return err
 		}
@@ -67,8 +67,8 @@ func (v *CertVerifier) Verify(ctx context.Context, ref name.Reference) error {
 	return verifyWithOpts(ctx, ref, &opts, "certificate "+v.certPath)
 }
 
-// loadCertPool parses all PEM CERTIFICATE blocks in path into a new x509.CertPool.
-func loadCertPool(path string) (*x509.CertPool, error) {
+// LoadCertPool parses all PEM CERTIFICATE blocks in path into a new x509.CertPool.
+func LoadCertPool(path string) (*x509.CertPool, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("reading certificate file %s: %w", path, err)

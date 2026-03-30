@@ -298,6 +298,28 @@ func buildEntryVerifier(entry config.VerifierEntryConfig, checkOpts *cosign.Chec
 			}
 		}
 		return verify.NewCertVerifier(entry.Cert.Path, entry.Cert.IntermediateCertsPath, identities, checkOpts)
+	case "attestation":
+		cfg := entry.Attestation
+		identities := make([]cosign.Identity, len(cfg.Cert.Identities))
+		for i, id := range cfg.Cert.Identities {
+			identities[i] = cosign.Identity{
+				Issuer:        id.Issuer,
+				Subject:       id.Subject,
+				IssuerRegExp:  id.IssuerRegExp,
+				SubjectRegExp: id.SubjectRegExp,
+			}
+		}
+		return verify.NewAttestationVerifier(
+			cfg.PredicateType,
+			cfg.Claims,
+			cfg.SigningMode,
+			cfg.Key.Path,
+			cfg.KMS.Ref,
+			cfg.Cert.Path,
+			cfg.Cert.IntermediateCertsPath,
+			identities,
+			checkOpts,
+		), nil
 	default:
 		return nil, fmt.Errorf("unknown verification mode %q", entry.Mode)
 	}

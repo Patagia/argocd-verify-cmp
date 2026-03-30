@@ -26,12 +26,26 @@ type VerificationConfig struct {
 }
 
 // VerifierEntryConfig describes a single verifier in the additional (OR) or
-// required (AND) chains. It supports all three verification modes.
+// required (AND) chains. It supports all verification modes.
 type VerifierEntryConfig struct {
-	Mode string     `yaml:"mode"` // "key", "kms", or "cert"
-	Key  KeyConfig  `yaml:"key"`
-	KMS  KMSConfig  `yaml:"kms"`
-	Cert CertConfig `yaml:"cert"`
+	Mode        string            `yaml:"mode"` // "key", "kms", "cert", or "attestation"
+	Key         KeyConfig         `yaml:"key"`
+	KMS         KMSConfig         `yaml:"kms"`
+	Cert        CertConfig        `yaml:"cert"`
+	Attestation AttestationConfig `yaml:"attestation"`
+}
+
+// AttestationConfig configures cosign attestation verification.
+// The attestation must be signed with the key/kms/cert identified by SigningMode.
+// If Claims is non-empty, the decoded predicate payload must contain all specified
+// top-level fields with matching string representations.
+type AttestationConfig struct {
+	PredicateType         string            `yaml:"predicateType"`
+	SigningMode           string            `yaml:"signingMode"` // "key", "kms", or "cert"
+	Key                   KeyConfig         `yaml:"key"`
+	KMS                   KMSConfig         `yaml:"kms"`
+	Cert                  CertConfig        `yaml:"cert"`
+	Claims                map[string]string `yaml:"claims"`
 }
 
 type KeyConfig struct {
