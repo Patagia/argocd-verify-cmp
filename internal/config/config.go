@@ -16,13 +16,22 @@ type Config struct {
 }
 
 type VerificationConfig struct {
-	Mode              string     `yaml:"mode"` // "key", "kms", or "cert"
-	Key               KeyConfig  `yaml:"key"`
-	KMS               KMSConfig  `yaml:"kms"`
-	Cert              CertConfig `yaml:"cert"`
-	AdditionalKeys    []string   `yaml:"additionalKeys"`
-	RequiredKeys      []string   `yaml:"requiredKeys"`
-	AllowedRegistries []string   `yaml:"allowedRegistries"`
+	Mode              string                `yaml:"mode"` // "key", "kms", or "cert"
+	Key               KeyConfig             `yaml:"key"`
+	KMS               KMSConfig             `yaml:"kms"`
+	Cert              CertConfig            `yaml:"cert"`
+	Additional        []VerifierEntryConfig `yaml:"additional"`
+	Required          []VerifierEntryConfig `yaml:"required"`
+	AllowedRegistries []string              `yaml:"allowedRegistries"`
+}
+
+// VerifierEntryConfig describes a single verifier in the additional (OR) or
+// required (AND) chains. It supports all three verification modes.
+type VerifierEntryConfig struct {
+	Mode string     `yaml:"mode"` // "key", "kms", or "cert"
+	Key  KeyConfig  `yaml:"key"`
+	KMS  KMSConfig  `yaml:"kms"`
+	Cert CertConfig `yaml:"cert"`
 }
 
 type KeyConfig struct {

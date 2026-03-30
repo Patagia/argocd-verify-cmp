@@ -241,22 +241,55 @@ func buildCheckOpts(cfg *config.Config, transport http.RoundTripper, keychain au
 	}
 }
 
-// buildVerifier constructs a Verifier (possibly MultiVerifier) from config.
+// buildVerifier constructs a Verifier from config.
+// The primary verifier plus any additional verifiers are composed into a
+// MultiVerifier (OR logic). If required verifiers are configured they are
+// wrapped with the OR chain in an AllVerifier (AND logic).
 func buildVerifier(cfg *config.Config, checkOpts *cosign.CheckOpts) (verify.Verifier, error) {
-	var verifiers []verify.Verifier
+	primary, err := buildEntryVerifier(config.VerifierEntryConfig{
+		Mode: cfg.Verification.Mode,
+		Key:  cfg.Verification.Key,
+		KMS:  cfg.Verification.KMS,
+		Cert: cfg.Verification.Cert,
+	}, checkOpts)
+	if err != nil {
+		return nil, err
+	}
+	orChain := []verify.Verifier{primary}
 
-	switch cfg.Verification.Mode {
-	case "kms":
-		verifiers = append(verifiers, verify.NewKMSVerifier(cfg.Verification.KMS.Ref, checkOpts))
-	case "key":
-		kv, err := verify.NewKeyVerifier(cfg.Verification.Key.Path, checkOpts)
+	for i, entry := range cfg.Verification.Additional {
+		v, err := buildEntryVerifier(entry, checkOpts)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("additional[%d]: %w", i, err)
 		}
-		verifiers = append(verifiers, kv)
+		orChain = append(orChain, v)
+	}
+
+	if len(cfg.Verification.Required) == 0 {
+		return verify.NewMultiVerifier(orChain...), nil
+	}
+
+	andChain := []verify.Verifier{verify.NewMultiVerifier(orChain...)}
+	for i, entry := range cfg.Verification.Required {
+		v, err := buildEntryVerifier(entry, checkOpts)
+		if err != nil {
+			return nil, fmt.Errorf("required[%d]: %w", i, err)
+		}
+		andChain = append(andChain, v)
+	}
+	return verify.NewAllVerifier(andChain...), nil
+}
+
+// buildEntryVerifier constructs a single Verifier from a VerifierEntryConfig.
+func buildEntryVerifier(entry config.VerifierEntryConfig, checkOpts *cosign.CheckOpts) (verify.Verifier, error) {
+	switch entry.Mode {
+	case "kms":
+		return verify.NewKMSVerifier(entry.KMS.Ref, checkOpts), nil
+	case "key":
+		return verify.NewKeyVerifier(entry.Key.Path, checkOpts)
 	case "cert":
-		identities := make([]cosign.Identity, len(cfg.Verification.Cert.Identities))
-		for i, id := range cfg.Verification.Cert.Identities {
+		identities := make([]cosign.Identity, len(entry.Cert.Identities))
+		for i, id := range entry.Cert.Identities {
 			identities[i] = cosign.Identity{
 				Issuer:        id.Issuer,
 				Subject:       id.Subject,
@@ -264,34 +297,10 @@ func buildVerifier(cfg *config.Config, checkOpts *cosign.CheckOpts) (verify.Veri
 				SubjectRegExp: id.SubjectRegExp,
 			}
 		}
-		cv, err := verify.NewCertVerifier(cfg.Verification.Cert.Path, cfg.Verification.Cert.IntermediateCertsPath, identities, checkOpts)
-		if err != nil {
-			return nil, err
-		}
-		verifiers = append(verifiers, cv)
+		return verify.NewCertVerifier(entry.Cert.Path, entry.Cert.IntermediateCertsPath, identities, checkOpts)
+	default:
+		return nil, fmt.Errorf("unknown verification mode %q", entry.Mode)
 	}
-
-	for _, addlKeyPath := range cfg.Verification.AdditionalKeys {
-		kv, err := verify.NewKeyVerifier(addlKeyPath, checkOpts)
-		if err != nil {
-			return nil, fmt.Errorf("loading additional key: %w", err)
-		}
-		verifiers = append(verifiers, kv)
-	}
-
-	if len(cfg.Verification.RequiredKeys) == 0 {
-		return verify.NewMultiVerifier(verifiers...), nil
-	}
-
-	all := []verify.Verifier{verify.NewMultiVerifier(verifiers...)}
-	for _, path := range cfg.Verification.RequiredKeys {
-		kv, err := verify.NewKeyVerifier(path, checkOpts)
-		if err != nil {
-			return nil, fmt.Errorf("loading required key: %w", err)
-		}
-		all = append(all, kv)
-	}
-	return verify.NewAllVerifier(all...), nil
 }
 
 // checkAllowedRegistry rejects refs whose registry is not in the allowlist.

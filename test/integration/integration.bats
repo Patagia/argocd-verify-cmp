@@ -91,8 +91,10 @@ verification:
   mode: key
   key:
     path: $f/cosign.pub
-  additionalKeys:
-    - $f/cosign2.pub
+  additional:
+    - mode: key
+      key:
+        path: $f/cosign2.pub
 
 registry:
   tls:

@@ -80,9 +80,11 @@ verification:
     # Hashicorp Vault, awskms://, gcpkms:// etc
     ref: hashicorp://vault/transit/keys/cosign
 
-  # Additional keys accepted during rotation
-  additionalKeys:
-    - /etc/cosign/cosign-old.pub
+  # OR chain: any of these also accepted (key rotation / alternatives)
+  additional:
+    - mode: key
+      key:
+        path: /etc/cosign/cosign-old.pub
 
   # Restrict to known internal registries
   allowedRegistries:
@@ -195,7 +197,7 @@ ArgoCD injects these into the CMP sidecar:
 8. **Verify cosign signature on the image:**
    - Build `cosign.CheckOpts` (key/KMS, IgnoreTlog, IgnoreSCT, RegistryClientOpts)
    - Call `cosign.VerifyImageSignatures(ctx, ref, checkOpts)`
-   - If primary fails and `additionalKeys` exist, retry with each
+   - If primary fails and `additional` verifiers exist, retry with each (OR chain)
    - Exit 1 if all verifiers fail
 9. **Discover manifest bundle via OCI referrers API:**
    - Resolve image descriptor (`remote.Head()` or `remote.Image()`)
@@ -456,7 +458,7 @@ spec:
 - Spin up local OCI registry (e.g. `zot` — supports OCI 1.1 referrers natively)
 - Push image + sign with cosign → verify signature passes
 - Push unsigned image → verify init exits 1
-- Push image signed with old key → verify additionalKeys fallback works
+- Push image signed with old key → verify additional OR-chain fallback works
 - Push image from disallowed registry → verify rejection
 - Attach manifest bundle as referrer with correct media type → verify discovery and extraction
 - Attach manifest bundle with wrong media type → verify init exits 1 (not found)

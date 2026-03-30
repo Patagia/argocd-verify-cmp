@@ -4,12 +4,29 @@ verification:
     path: /etc/cosign/cosign.pub
   kms:
     ref: hashicorp://vault/transit/keys/cosign
-  additionalKeys:
-    - /etc/cosign/cosign-old.pub
-  # requiredKeys: AND-logic — ALL listed keys must have signed the image.
+  # additional: OR-chain — any of these also accepted (key rotation / alternatives).
+  # Supports all modes: key, kms, cert.
+  # additional:
+  #   - mode: key
+  #     key:
+  #       path: /etc/cosign/cosign-old.pub
+  #   - mode: kms
+  #     kms:
+  #       ref: awskms://arn:aws:kms:us-east-1:123456789012:key/abc-123
+
+  # required: AND-chain — ALL of these must also have signed the image.
   # Use for multi-party signing (e.g. upstream signature + internal blessing).
-  # requiredKeys:
-  #   - /etc/cosign/internal-blessing.pub
+  # required:
+  #   - mode: key
+  #     key:
+  #       path: /etc/cosign/internal-blessing.pub
+  #   - mode: cert
+  #     cert:
+  #       path: /etc/cosign/internal-ca.pem
+  #       identities:
+  #         - subject: ci-bot@example.com
+  #           issuer: https://accounts.google.com
+
   allowedRegistries:
     - registry.internal.example.com
 

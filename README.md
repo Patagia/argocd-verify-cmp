@@ -23,8 +23,14 @@ verification:
   mode: key          # "key", "kms", or "cert"
   key:
     path: /etc/verify-cmp/cosign.pub
-  additionalKeys:    # optional — for key rotation
-    - /etc/verify-cmp/cosign-secondary.pub
+  additional:        # optional — OR chain: any of these also accepted
+    - mode: key
+      key:
+        path: /etc/verify-cmp/cosign-secondary.pub
+  required:          # optional — AND chain: all of these must also have signed
+    - mode: key
+      key:
+        path: /etc/verify-cmp/internal-blessing.pub
   allowedRegistries: # optional — registry allowlist
     - registry.example.com
 

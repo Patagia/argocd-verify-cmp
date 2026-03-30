@@ -98,15 +98,19 @@ referrers:
 	}
 }
 
-func TestLoad_AdditionalKeysAndAllowedRegistries(t *testing.T) {
+func TestLoad_AdditionalAndAllowedRegistries(t *testing.T) {
 	path := writeConfig(t, `
 verification:
   mode: key
   key:
     path: /etc/cosign/cosign.pub
-  additionalKeys:
-    - /etc/cosign/old.pub
-    - /etc/cosign/older.pub
+  additional:
+    - mode: key
+      key:
+        path: /etc/cosign/old.pub
+    - mode: kms
+      kms:
+        ref: awskms://my-key
   allowedRegistries:
     - registry.internal.example.com
     - registry2.internal.example.com
@@ -115,11 +119,46 @@ verification:
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(cfg.Verification.AdditionalKeys) != 2 {
-		t.Errorf("additionalKeys len = %d, want 2", len(cfg.Verification.AdditionalKeys))
+	if len(cfg.Verification.Additional) != 2 {
+		t.Errorf("additional len = %d, want 2", len(cfg.Verification.Additional))
+	}
+	if cfg.Verification.Additional[0].Mode != "key" {
+		t.Errorf("additional[0].mode = %q, want \"key\"", cfg.Verification.Additional[0].Mode)
+	}
+	if cfg.Verification.Additional[1].Mode != "kms" {
+		t.Errorf("additional[1].mode = %q, want \"kms\"", cfg.Verification.Additional[1].Mode)
 	}
 	if len(cfg.Verification.AllowedRegistries) != 2 {
 		t.Errorf("allowedRegistries len = %d, want 2", len(cfg.Verification.AllowedRegistries))
+	}
+}
+
+func TestLoad_Required(t *testing.T) {
+	path := writeConfig(t, `
+verification:
+  mode: key
+  key:
+    path: /etc/cosign/cosign.pub
+  required:
+    - mode: key
+      key:
+        path: /etc/cosign/blessing.pub
+    - mode: cert
+      cert:
+        path: /etc/cosign/internal-ca.pem
+`)
+	cfg, err := config.Load(path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cfg.Verification.Required) != 2 {
+		t.Errorf("required len = %d, want 2", len(cfg.Verification.Required))
+	}
+	if cfg.Verification.Required[0].Mode != "key" {
+		t.Errorf("required[0].mode = %q, want \"key\"", cfg.Verification.Required[0].Mode)
+	}
+	if cfg.Verification.Required[1].Mode != "cert" {
+		t.Errorf("required[1].mode = %q, want \"cert\"", cfg.Verification.Required[1].Mode)
 	}
 }
 
