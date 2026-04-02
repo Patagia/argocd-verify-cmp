@@ -84,13 +84,13 @@ attest() {
 
 # verify-cmp helpers
 
-# run_init REPO TAG CONFIG — invoke verify-cmp init directly.
-run_init() {
+# run_fetch REPO TAG CONFIG — invoke verify-cmp fetch directly.
+run_fetch() {
   local repo=$1 tag=$2 config=$3
   ARGOCD_APP_SOURCE_REPO_URL="oci://$REGISTRY/$repo" \
   ARGOCD_APP_SOURCE_TARGET_REVISION="$tag" \
   VERIFY_CMP_CONFIG="$config" \
-    "$BINARY" init
+    "$BINARY" fetch
 }
 
 # run_generate CONFIG [SUBPATH] — invoke verify-cmp generate, print stdout.

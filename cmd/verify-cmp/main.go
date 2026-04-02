@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -33,7 +34,7 @@ func main() {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
-	root.AddCommand(newInitCmd(), newGenerateCmd())
+	root.AddCommand(newFetchCmd(), newGenerateCmd())
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "verify-cmp:", err)
 		os.Exit(1)
@@ -47,18 +48,20 @@ func configPath() string {
 	return defaultConfigPath
 }
 
-// newInitCmd returns the `init` subcommand.
-// ArgoCD calls this before generate; it verifies the cosign signature and
-// extracts the manifest bundle to the configured extractDir.
-func newInitCmd() *cobra.Command {
+// newFetchCmd returns the `fetch` subcommand.
+// ArgoCD calls this instead of cloning the source; it verifies the cosign
+// signature, extracts the manifest bundle to the configured extractDir, and
+// writes .argocd-cmp-fetch-result.json with the resolved revision and verify
+// output for ArgoCD to surface in the UI.
+func newFetchCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "init",
+		Use:   "fetch",
 		Short: "Verify cosign signature and extract manifest bundle",
-		RunE:  runInit,
+		RunE:  runFetch,
 	}
 }
 
-func runInit(_ *cobra.Command, _ []string) error {
+func runFetch(_ *cobra.Command, _ []string) error {
 	ctx := context.Background()
 
 	repoURL := os.Getenv("ARGOCD_APP_SOURCE_REPO_URL")
@@ -117,6 +120,18 @@ func runInit(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
+	// Resolve the source ref to a digest so we can report an immutable revision.
+	gcrOpts := []gcrremote.Option{
+		gcrremote.WithContext(ctx),
+		gcrremote.WithAuthFromKeychain(keychain),
+		gcrremote.WithTransport(transport),
+	}
+	headDesc, err := gcrremote.Head(ref, gcrOpts...)
+	if err != nil {
+		return fmt.Errorf("resolving image digest for %s: %w", ref, err)
+	}
+	resolvedRevision := headDesc.Digest.String()
+
 	// Determine discovery path: inspect the artifactType of the source ref.
 	// If it matches the configured bundle media type, the source IS the bundle
 	// (standalone). Otherwise treat it as the app image and look for referrers.
@@ -134,29 +149,49 @@ func runInit(_ *cobra.Command, _ []string) error {
 		if err := referrers.ExtractByRef(ctx, ref, cfg.Referrers.ExtractDir, transport, keychain); err != nil {
 			return fmt.Errorf("extracting manifest bundle: %w", err)
 		}
-		return nil
+	} else {
+		// Referrers: the source is the app image. Verify it, then find and
+		// extract the manifest bundle attached as a referrer.
+		fmt.Fprintf(os.Stderr, "verify-cmp: verifying signature on app image %s\n", ref)
+		if err := v.Verify(ctx, ref); err != nil {
+			return fmt.Errorf("signature verification: %w", err)
+		}
+		fmt.Fprintf(os.Stderr, "verify-cmp: discovering referrer with media type %q\n", cfg.Referrers.ManifestMediaType)
+		desc, err := referrers.Find(
+			ctx, ref,
+			cfg.Referrers.ManifestMediaType,
+			cfg.Referrers.EnableTagFallback,
+			transport, keychain,
+			cfg.Registry.DockerConfigPath,
+		)
+		if err != nil {
+			return fmt.Errorf("finding manifest bundle referrer: %w", err)
+		}
+		fmt.Fprintf(os.Stderr, "verify-cmp: found referrer %s\n", desc.Digest)
+		if err := referrers.Extract(ctx, ref, desc, cfg.Referrers.ExtractDir, transport, keychain); err != nil {
+			return fmt.Errorf("extracting manifest bundle: %w", err)
+		}
 	}
 
-	// Referrers: the source is the app image. Verify it, then find and extract
-	// the manifest bundle attached as a referrer.
-	fmt.Fprintf(os.Stderr, "verify-cmp: verifying signature on app image %s\n", ref)
-	if err := v.Verify(ctx, ref); err != nil {
-		return fmt.Errorf("signature verification: %w", err)
+	return writeFetchResult(resolvedRevision, "Verified OK")
+}
+
+// writeFetchResult writes .argocd-cmp-fetch-result.json to the current working
+// directory so ArgoCD can surface the resolved revision and verify output.
+func writeFetchResult(revision, verifyResult string) error {
+	result := struct {
+		Revision     string `json:"revision,omitempty"`
+		VerifyResult string `json:"verifyResult,omitempty"`
+	}{
+		Revision:     revision,
+		VerifyResult: verifyResult,
 	}
-	fmt.Fprintf(os.Stderr, "verify-cmp: discovering referrer with media type %q\n", cfg.Referrers.ManifestMediaType)
-	desc, err := referrers.Find(
-		ctx, ref,
-		cfg.Referrers.ManifestMediaType,
-		cfg.Referrers.EnableTagFallback,
-		transport, keychain,
-		cfg.Registry.DockerConfigPath,
-	)
+	data, err := json.Marshal(result)
 	if err != nil {
-		return fmt.Errorf("finding manifest bundle referrer: %w", err)
+		return fmt.Errorf("marshaling fetch result: %w", err)
 	}
-	fmt.Fprintf(os.Stderr, "verify-cmp: found referrer %s\n", desc.Digest)
-	if err := referrers.Extract(ctx, ref, desc, cfg.Referrers.ExtractDir, transport, keychain); err != nil {
-		return fmt.Errorf("extracting manifest bundle: %w", err)
+	if err := os.WriteFile(".argocd-cmp-fetch-result.json", data, 0o644); err != nil {
+		return fmt.Errorf("writing .argocd-cmp-fetch-result.json: %w", err)
 	}
 	return nil
 }

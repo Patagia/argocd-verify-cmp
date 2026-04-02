@@ -4,9 +4,7 @@ metadata:
   name: cosign-verified-manifests
 spec:
   version: v1.0
-  init:
-    command: [/usr/local/bin/verify-cmp, init]
+  fetch:
+    command: [/usr/local/bin/verify-cmp, fetch]
   generate:
     command: [/usr/local/bin/verify-cmp, generate]
-  discover:
-    fileName: "*.yaml"

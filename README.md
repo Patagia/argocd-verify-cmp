@@ -1,12 +1,14 @@
 # argocd-verify-cmp
 
+> **Work in progress.** This plugin depends on `spec.fetch` and related CMP extensions that are not yet in upstream ArgoCD. It currently targets the [Patagia ArgoCD fork](https://github.com/Patagia/argo-cd). The API may change as these features are developed and upstreamed.
+
 An [ArgoCD Config Management Plugin (CMP)](https://argo-cd.readthedocs.io/en/stable/operator-manual/config-management-plugins/) that verifies [cosign](https://github.com/sigstore/cosign) signatures on OCI artifacts and extracts Kubernetes manifests for deployment.
 
 ## Overview
 
 `verify-cmp` acts as a security gate in ArgoCD's GitOps pipeline. When ArgoCD syncs an application whose source is an OCI image reference, this plugin:
 
-1. **Init phase** — Verifies the cosign signature on the referenced OCI image and extracts the manifest bundle to disk.
+1. **Fetch phase** — Verifies the cosign signature on the referenced OCI image, extracts the manifest bundle to disk, and writes `.argocd-cmp-fetch-result.json` with the resolved content digest and verification result for ArgoCD to surface in the UI.
 2. **Generate phase** — Outputs the extracted Kubernetes manifests to stdout for ArgoCD to apply.
 
 Two artifact patterns are supported:
@@ -113,7 +115,7 @@ make build
 
 ### Deploying to ArgoCD
 
-Install `verify-cmp` as a sidecar to the ArgoCD repo-server using the CMP sidecar pattern. Mount the container image alongside a `plugin.yaml` that declares the `init` and `generate` commands:
+Install `verify-cmp` as a sidecar to the ArgoCD repo-server using the CMP sidecar pattern. Mount the container image alongside a `plugin.yaml` that declares the `fetch` and `generate` commands:
 
 ```yaml
 # deploy/plugin.yaml (included at /home/argocd/cmp-server/config/plugin.yaml in the image)
@@ -123,19 +125,19 @@ metadata:
   name: cosign-verified-manifests
 spec:
   version: v1.0
-  init:
-    command: [/usr/local/bin/verify-cmp, init]
+  fetch:
+    command: [/usr/local/bin/verify-cmp, fetch]
   generate:
     command: [/usr/local/bin/verify-cmp, generate]
-  discover:
-    fileName: "*.yaml"
 ```
+
+This plugin uses `spec.fetch` (available in the Patagia ArgoCD fork) rather than `spec.init`. With `spec.fetch`, ArgoCD delegates source retrieval entirely to the plugin and reads back the resolved revision and verification output from `.argocd-cmp-fetch-result.json`. Because the plugin is explicitly referenced by name in each Application, `spec.discover` is not needed.
 
 Mount your cosign public key and a config file into the sidecar at the paths referenced by `config.example.yaml`.
 
 ### Referencing the plugin from an Application
 
-Set `spec.source.plugin` on your ArgoCD `Application` to select the plugin by name and version:
+Set `spec.source.plugin` on your ArgoCD `Application` to select the plugin by name:
 
 ```yaml
 apiVersion: argoproj.io/v1alpha1
@@ -149,7 +151,6 @@ spec:
     targetRevision: "1.2.3"
     plugin:
       name: cosign-verified-manifests
-      version: v1.0
   destination:
     server: https://kubernetes.default.svc
     namespace: my-app

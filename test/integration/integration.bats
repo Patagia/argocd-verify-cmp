@@ -224,7 +224,7 @@ setup() {
   sign "inttest/app" "t1"
   attach_bundle "inttest/app" "t1"
 
-  run run_init "inttest/app" "t1" "$CFG"
+  run run_fetch "inttest/app" "t1" "$CFG"
   assert_success
 
   run run_generate "$CFG"
@@ -239,7 +239,7 @@ setup() {
   push_bundle "inttest/bundle" "t2"
   sign "inttest/bundle" "t2"
 
-  run run_init "inttest/bundle" "t2" "$CFG"
+  run run_fetch "inttest/bundle" "t2" "$CFG"
   assert_success
 
   run run_generate "$CFG"
@@ -252,7 +252,7 @@ setup() {
 @test "unsigned_image_rejected" {
   push_image "inttest/app" "t3"
 
-  run run_init "inttest/app" "t3" "$CFG"
+  run run_fetch "inttest/app" "t3" "$CFG"
   assert_failure
 }
 
@@ -262,7 +262,7 @@ setup() {
   push_image "inttest/app" "t4"
   sign "inttest/app" "t4"
 
-  run run_init "inttest/app" "t4" "$CFG"
+  run run_fetch "inttest/app" "t4" "$CFG"
   assert_failure
 }
 
@@ -273,7 +273,7 @@ setup() {
   sign "inttest/app" "t5"
   attach_bundle "inttest/app" "t5" "application/vnd.other.bundle.v1+tar"
 
-  run run_init "inttest/app" "t5" "$CFG"
+  run run_fetch "inttest/app" "t5" "$CFG"
   assert_failure
 }
 
@@ -284,7 +284,7 @@ setup() {
   sign "inttest/app" "t6" "$TESTENV/cosign2.key"
   attach_bundle "inttest/app" "t6"
 
-  run run_init "inttest/app" "t6" "$CFG_ADDL_KEYS"
+  run run_fetch "inttest/app" "t6" "$CFG_ADDL_KEYS"
   assert_success
 }
 
@@ -295,7 +295,7 @@ setup() {
     ARGOCD_APP_SOURCE_REPO_URL="https://github.com/example/app" \
     ARGOCD_APP_SOURCE_TARGET_REVISION="main" \
     VERIFY_CMP_CONFIG="$CFG" \
-    "$BINARY" init
+    "$BINARY" fetch
   assert_success
 }
 
@@ -305,7 +305,7 @@ setup() {
   push_image "inttest/app" "t8"
   sign "inttest/app" "t8"
 
-  run run_init "inttest/app" "t8" "$CFG_DISALLOWED"
+  run run_fetch "inttest/app" "t8" "$CFG_DISALLOWED"
   assert_failure
 }
 
@@ -328,7 +328,7 @@ setup() {
   sign "inttest/subpath" "t9"
   rm -rf "$bundle_dir" "$bundle_tar"
 
-  run run_init "inttest/subpath" "t9" "$CFG"
+  run run_fetch "inttest/subpath" "t9" "$CFG"
   assert_success
 
   run run_generate "$CFG" "overlays/production"
@@ -357,7 +357,7 @@ setup() {
   sign "inttest/subdir" "t11"
   rm -rf "$bundle_dir" "$bundle_tar"
 
-  run run_init "inttest/subdir" "t11" "$CFG"
+  run run_fetch "inttest/subdir" "t11" "$CFG"
   assert_success
 
   run run_generate "$CFG" "app"
@@ -375,7 +375,7 @@ setup() {
   attest "inttest/app" "t12"
   attach_bundle "inttest/app" "t12"
 
-  run run_init "inttest/app" "t12" "$CFG_ATTESTATION"
+  run run_fetch "inttest/app" "t12" "$CFG_ATTESTATION"
   assert_success
 }
 
@@ -386,7 +386,7 @@ setup() {
   sign "inttest/app" "t13"
   attach_bundle "inttest/app" "t13"
 
-  run run_init "inttest/app" "t13" "$CFG_ATTESTATION"
+  run run_fetch "inttest/app" "t13" "$CFG_ATTESTATION"
   assert_failure
 }
 
@@ -398,7 +398,7 @@ setup() {
   attest "inttest/app" "t14" "$TESTENV/cosign.key" "https://example.com/other/v1" '{"approved":true}'
   attach_bundle "inttest/app" "t14"
 
-  run run_init "inttest/app" "t14" "$CFG_ATTESTATION"
+  run run_fetch "inttest/app" "t14" "$CFG_ATTESTATION"
   assert_failure
 }
 
@@ -411,7 +411,7 @@ setup() {
     '{"approved":true,"reviewer":"ci-bot@example.com"}'
   attach_bundle "inttest/app" "t15"
 
-  run run_init "inttest/app" "t15" "$CFG_ATTESTATION_CLAIMS"
+  run run_fetch "inttest/app" "t15" "$CFG_ATTESTATION_CLAIMS"
   assert_success
 }
 
@@ -424,7 +424,7 @@ setup() {
     '{"approved":false,"reviewer":"ci-bot@example.com"}'
   attach_bundle "inttest/app" "t16"
 
-  run run_init "inttest/app" "t16" "$CFG_ATTESTATION_CLAIMS"
+  run run_fetch "inttest/app" "t16" "$CFG_ATTESTATION_CLAIMS"
   assert_failure
 }
 
@@ -435,6 +435,6 @@ setup() {
   sign "inttest/app" "t10"
   attach_bundle "inttest/app" "t10"
 
-  run run_init "inttest/app" "t10" "$CFG_BAD_AUTH"
+  run run_fetch "inttest/app" "t10" "$CFG_BAD_AUTH"
   assert_failure
 }

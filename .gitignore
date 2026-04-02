@@ -1,6 +1,9 @@
 # Build output
 bin/
 
+# Written by verify-cmp fetch during local testing
+.argocd-cmp-fetch-result.json
+
 # Integration test generated files (secrets / ephemeral keys)
 test/integration/.testenv/
 
