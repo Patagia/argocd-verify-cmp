@@ -29,7 +29,9 @@ argocd-repo-server pod
     └── /etc/verify-cmp/config.yaml
 ```
 
-CMP `init`: verify cosign signature on OCI image → query referrers API → pull manifest bundle → extract to working dir.
+> **Work in progress.** `spec.fetch` and `.argocd-cmp-fetch-result.json` are not in upstream ArgoCD. This plugin targets the [Patagia ArgoCD fork](https://github.com/Patagia/argo-cd). The CMP API may change as these features are developed and upstreamed.
+
+CMP `fetch`: verify cosign signature on OCI image → resolve digest → query referrers API → pull manifest bundle → extract to working dir → write `.argocd-cmp-fetch-result.json`.
 CMP `generate`: output extracted manifests to stdout.
 
 ## Project Structure
@@ -38,7 +40,7 @@ CMP `generate`: output extracted manifests to stdout.
 argocd-verify-cmp/
 ├── cmd/
 │   └── verify-cmp/
-│       └── main.go              # CLI entrypoint (init / generate subcommands)
+│       └── main.go              # CLI entrypoint (fetch / generate subcommands)
 ├── internal/
 │   ├── config/
 │   │   └── config.go            # Config loading and validation
@@ -163,7 +165,7 @@ spec:
     repoURL: https://git.internal.example.com/team/manifests.git
 ```
 
-**Layer 2 — init safety check (defensive):** If the plugin is accidentally attached to a non-OCI source, `init` checks `ARGOCD_APP_SOURCE_REPO_URL` for the `oci://` prefix. If absent, it logs a skip message to stderr and exits 0, becoming a passthrough. This prevents blocking non-OCI syncs.
+**Layer 2 — fetch safety check (defensive):** If the plugin is accidentally attached to a non-OCI source, `fetch` checks `ARGOCD_APP_SOURCE_REPO_URL` for the `oci://` prefix. If absent, it logs a skip message to stderr and exits 0, becoming a passthrough. This prevents blocking non-OCI syncs.
 
 ## Implementation Notes
 
@@ -175,7 +177,7 @@ ArgoCD injects these into the CMP sidecar:
 - `ARGOCD_APP_SOURCE_TARGET_REVISION` — tag or digest (e.g. `v1.0.0` or `sha256:abc...`)
 - `ARGOCD_APP_SOURCE_PATH` — subdirectory within the extracted manifest bundle
 
-### init command
+### fetch command
 
 1. Read `ARGOCD_APP_SOURCE_REPO_URL` env var
 2. **If not `oci://` prefix → log skip to stderr, exit 0 (passthrough)**
@@ -194,20 +196,25 @@ ArgoCD injects these into the CMP sidecar:
    - If `insecure: true` → allow HTTP (plain) connections
    - Load Docker credentials from `registry.dockerConfigPath` via `authn.NewKeychainFromDockerConfig()`
    - Pass transport and keychain as `remote.Option` to all registry calls
-8. **Verify cosign signature on the image:**
+8. **Resolve source ref to an immutable digest** via `remote.Head()` → saved as `revision`
+9. **Verify cosign signature on the image:**
    - Build `cosign.CheckOpts` (key/KMS, IgnoreTlog, IgnoreSCT, RegistryClientOpts)
    - Call `cosign.VerifyImageSignatures(ctx, ref, checkOpts)`
    - If primary fails and `additional` verifiers exist, retry with each (OR chain)
    - Exit 1 if all verifiers fail
-9. **Discover manifest bundle via OCI referrers API:**
-   - Resolve image descriptor (`remote.Head()` or `remote.Image()`)
-   - Call referrers API filtered by `referrers.manifestMediaType`
-   - If OCI 1.1 referrers API fails and `enableTagFallback: true`, try tag-based fallback
-   - Exit 1 if no manifest bundle referrer found
-10. **Pull and extract the manifest bundle:**
+10. **Discover manifest bundle via OCI referrers API:**
+    - Call referrers API filtered by `referrers.manifestMediaType`
+    - If OCI 1.1 referrers API fails and `enableTagFallback: true`, try tag-based fallback
+    - Exit 1 if no manifest bundle referrer found
+11. **Pull and extract the manifest bundle:**
     - Pull the referrer blob
     - Extract tar to `referrers.extractDir` (default `/tmp/manifests`)
-11. Log all results to stderr (ArgoCD surfaces stderr in UI)
+12. **Write `.argocd-cmp-fetch-result.json`** to the working directory:
+    ```json
+    {"revision": "sha256:…", "verifyResult": "Verified OK"}
+    ```
+    ArgoCD reads this to surface the resolved digest and verification status in the UI.
+13. Log all results to stderr (ArgoCD surfaces stderr in UI)
 
 ### Registry Authentication
 
@@ -295,7 +302,7 @@ volumes:
 
 ### generate command
 
-1. Read `referrers.extractDir` as base directory (where init extracted the bundle)
+1. Read `referrers.extractDir` as base directory (where fetch extracted the bundle)
 2. If `ARGOCD_APP_SOURCE_PATH` is set, append it to base directory
 3. Walk resulting directory for `*.yaml`, `*.yml`, `*.json` files
 4. Skip hidden files/dirs
@@ -378,12 +385,10 @@ metadata:
   name: cosign-verified-manifests
 spec:
   version: v1.0
-  init:
-    command: [/usr/local/bin/verify-cmp, init]
+  fetch:
+    command: [/usr/local/bin/verify-cmp, fetch]
   generate:
     command: [/usr/local/bin/verify-cmp, generate]
-  discover:
-    fileName: "*.yaml"
 ```
 
 ### Sidecar patch
