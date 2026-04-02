@@ -462,11 +462,11 @@ spec:
 ### Integration tests
 - Spin up local OCI registry (e.g. `zot` — supports OCI 1.1 referrers natively)
 - Push image + sign with cosign → verify signature passes
-- Push unsigned image → verify init exits 1
+- Push unsigned image → verify fetch exits 1
 - Push image signed with old key → verify additional OR-chain fallback works
 - Push image from disallowed registry → verify rejection
 - Attach manifest bundle as referrer with correct media type → verify discovery and extraction
-- Attach manifest bundle with wrong media type → verify init exits 1 (not found)
+- Attach manifest bundle with wrong media type → verify fetch exits 1 (not found)
 - Test tag-based referrer fallback with `distribution` registry (pre OCI 1.1)
 - Registry with auth enabled → verify credentials from dockerConfigPath are used
 - Registry with no credentials mounted → verify clear 401 error message

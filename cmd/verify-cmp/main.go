@@ -197,7 +197,7 @@ func writeFetchResult(revision, verifyResult string) error {
 }
 
 // newGenerateCmd returns the `generate` subcommand.
-// ArgoCD calls this after init; it prints manifests to stdout.
+// ArgoCD calls this after fetch; it prints manifests to stdout.
 func newGenerateCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "generate",
