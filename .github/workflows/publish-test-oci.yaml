@@ -1,0 +1,76 @@
+name: Publish Test OCI
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  publish-test-oci:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Install oras
+        uses: oras-project/setup-oras@v1
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # --- app image (with referrer bundle) ---
+
+      - name: Push minimal app image
+        run: |
+          cfg=$(mktemp)
+          echo '{}' > "$cfg"
+          oras push ghcr.io/patagia/test-verify-cmp:app \
+            --config "$cfg:application/vnd.oci.image.config.v1+json"
+          rm -f "$cfg"
+
+      - name: Sign app image
+        env:
+          COSIGN_PASSWORD: ""
+        run: |
+          cosign sign \
+            --key test-cosign.key \
+            --tlog-upload=false \
+            ghcr.io/patagia/test-verify-cmp:app
+
+      - name: Attach manifest bundle as referrer
+        run: |
+          bundle=$(mktemp)
+          tar cf "$bundle" -C test/integration/fixtures/manifests .
+          oras attach ghcr.io/patagia/test-verify-cmp:app \
+            --artifact-type application/vnd.patagia.k8s-manifests.v1+tar \
+            "$bundle:application/vnd.oci.image.layer.v1.tar"
+          rm -f "$bundle"
+
+      # --- standalone bundle ---
+
+      - name: Push standalone bundle
+        run: |
+          bundle=$(mktemp)
+          tar cf "$bundle" -C test/integration/fixtures/manifests .
+          oras push ghcr.io/patagia/test-verify-cmp:bundle \
+            --artifact-type application/vnd.patagia.k8s-manifests.v1+tar \
+            "$bundle:application/vnd.oci.image.layer.v1.tar"
+          rm -f "$bundle"
+
+      - name: Sign standalone bundle
+        env:
+          COSIGN_PASSWORD: ""
+        run: |
+          cosign sign \
+            --key test-cosign.key \
+            --tlog-upload=false \
+            ghcr.io/patagia/test-verify-cmp:bundle

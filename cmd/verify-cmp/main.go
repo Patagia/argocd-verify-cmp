@@ -25,7 +25,7 @@ import (
 	"github.com/Patagia/argocd-verify-cmp/internal/verify"
 )
 
-const defaultConfigPath = "/etc/verify-cmp/config.yaml"
+const defaultConfigPath = "/tmp/verify-cmp/config.yaml"
 
 func main() {
 	root := &cobra.Command{
