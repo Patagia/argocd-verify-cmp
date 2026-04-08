@@ -34,7 +34,8 @@ jobs:
           cfg=$(mktemp)
           echo '{}' > "$cfg"
           oras push ghcr.io/patagia/test-verify-cmp:app \
-            --config "$cfg:application/vnd.oci.image.config.v1+json"
+            --config "$cfg:application/vnd.oci.image.config.v1+json" \
+            --disable-path-validation
           rm -f "$cfg"
 
       - name: Sign app image
@@ -52,6 +53,7 @@ jobs:
           tar cf "$bundle" -C test/integration/fixtures/manifests .
           oras attach ghcr.io/patagia/test-verify-cmp:app \
             --artifact-type application/vnd.patagia.k8s-manifests.v1+tar \
+            --disable-path-validation \
             "$bundle:application/vnd.oci.image.layer.v1.tar"
           rm -f "$bundle"
 
@@ -63,6 +65,7 @@ jobs:
           tar cf "$bundle" -C test/integration/fixtures/manifests .
           oras push ghcr.io/patagia/test-verify-cmp:bundle \
             --artifact-type application/vnd.patagia.k8s-manifests.v1+tar \
+            --disable-path-validation \
             "$bundle:application/vnd.oci.image.layer.v1.tar"
           rm -f "$bundle"
 
