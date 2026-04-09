@@ -68,8 +68,8 @@ verification:
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if cfg.Referrers.ExtractDir != "/tmp/manifests" {
-		t.Errorf("extractDir default = %q, want \"/tmp/manifests\"", cfg.Referrers.ExtractDir)
+	if cfg.Referrers.ExtractDir != "manifests" {
+		t.Errorf("extractDir default = %q, want \"manifests\"", cfg.Referrers.ExtractDir)
 	}
 	if cfg.Referrers.ManifestMediaType != "application/vnd.acme.k8s-manifests.v1+tar" {
 		t.Errorf("manifestMediaType default = %q", cfg.Referrers.ManifestMediaType)
@@ -83,18 +83,33 @@ verification:
   key:
     path: /etc/cosign/cosign.pub
 referrers:
-  extractDir: /custom/manifests
+  extractDir: custom/manifests
   manifestMediaType: application/vnd.myco.manifests.v2+tar
 `)
 	cfg, err := config.Load(path)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if cfg.Referrers.ExtractDir != "/custom/manifests" {
-		t.Errorf("extractDir = %q, want \"/custom/manifests\"", cfg.Referrers.ExtractDir)
+	if cfg.Referrers.ExtractDir != "custom/manifests" {
+		t.Errorf("extractDir = %q, want \"custom/manifests\"", cfg.Referrers.ExtractDir)
 	}
 	if cfg.Referrers.ManifestMediaType != "application/vnd.myco.manifests.v2+tar" {
 		t.Errorf("manifestMediaType = %q", cfg.Referrers.ManifestMediaType)
+	}
+}
+
+func TestLoad_AbsoluteExtractDirRejected(t *testing.T) {
+	path := writeConfig(t, `
+verification:
+  mode: key
+  key:
+    path: /etc/cosign/cosign.pub
+referrers:
+  extractDir: /tmp/manifests
+`)
+	_, err := config.Load(path)
+	if err == nil {
+		t.Fatal("expected error for absolute extractDir, got nil")
 	}
 }
 

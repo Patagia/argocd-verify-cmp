@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 )
@@ -120,7 +121,7 @@ func Load(path string) (*Config, error) {
 
 func setDefaults(cfg *Config) {
 	if cfg.Referrers.ExtractDir == "" {
-		cfg.Referrers.ExtractDir = "/tmp/manifests"
+		cfg.Referrers.ExtractDir = "manifests"
 	}
 	if cfg.Referrers.ManifestMediaType == "" {
 		cfg.Referrers.ManifestMediaType = "application/vnd.acme.k8s-manifests.v1+tar"
@@ -128,6 +129,9 @@ func setDefaults(cfg *Config) {
 }
 
 func validate(cfg *Config) error {
+	if filepath.IsAbs(cfg.Referrers.ExtractDir) {
+		return fmt.Errorf("referrers.extractDir must be a relative path (got %q); ArgoCD runs fetch in a per-request temp dir, so absolute paths cause races between concurrent syncs", cfg.Referrers.ExtractDir)
+	}
 	switch cfg.Verification.Mode {
 	case "key":
 		if cfg.Verification.Key.Path == "" {

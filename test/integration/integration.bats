@@ -15,7 +15,7 @@ setup_file() {
   local registry_user="testuser"
   local registry_pass="testpass"
 
-  mkdir -p "$TESTENV/auth" "$TESTENV/auth-bad" "$TESTENV/manifests" "$TESTENV/registry"
+  mkdir -p "$TESTENV/auth" "$TESTENV/auth-bad" "$TESTENV/registry"
 
   htpasswd -bnBC 10 "$registry_user" "$registry_pass" > "$TESTENV/zot-htpasswd"
   cat > "$TESTENV/zot-config.json" <<EOF
@@ -82,7 +82,7 @@ registry:
 
 referrers:
   manifestMediaType: application/vnd.test.k8s-manifests.v1+tar
-  extractDir: $f/manifests
+  extractDir: manifests
 
 airgap:
   skipTlog: true
@@ -105,7 +105,7 @@ registry:
 
 referrers:
   manifestMediaType: application/vnd.test.k8s-manifests.v1+tar
-  extractDir: $f/manifests
+  extractDir: manifests
 
 airgap:
   skipTlog: true
@@ -124,7 +124,7 @@ registry:
 
 referrers:
   manifestMediaType: application/vnd.test.k8s-manifests.v1+tar
-  extractDir: $f/manifests
+  extractDir: manifests
 
 airgap:
   skipTlog: true
@@ -150,7 +150,7 @@ registry:
 
 referrers:
   manifestMediaType: application/vnd.test.k8s-manifests.v1+tar
-  extractDir: $f/manifests
+  extractDir: manifests
 
 airgap:
   skipTlog: true
@@ -179,7 +179,7 @@ registry:
 
 referrers:
   manifestMediaType: application/vnd.test.k8s-manifests.v1+tar
-  extractDir: $f/manifests
+  extractDir: manifests
 
 airgap:
   skipTlog: true
@@ -200,7 +200,7 @@ registry:
 
 referrers:
   manifestMediaType: application/vnd.test.k8s-manifests.v1+tar
-  extractDir: $f/manifests
+  extractDir: manifests
 
 airgap:
   skipTlog: true
@@ -213,8 +213,8 @@ teardown_file() {
 }
 
 setup() {
-  rm -rf "$TESTENV/manifests"
-  mkdir -p "$TESTENV/manifests"
+  rm -rf "$WORKDIR"
+  mkdir -p "$WORKDIR"
 }
 
 # 1: signed referrer happy path
@@ -247,7 +247,31 @@ setup() {
   assert_output --partial "kind: Deployment"
 }
 
-# 3: unsigned image rejected
+# 3: fetch result metadata populated from OCI labels on app image
+
+@test "fetch_result_metadata" {
+  push_image "inttest/app" "meta"
+  sign "inttest/app" "meta"
+  attach_bundle "inttest/app" "meta"
+
+  run run_fetch "inttest/app" "meta" "$CFG"
+  assert_success
+
+  local result="$WORKDIR/.argocd-cmp-fetch-result.json"
+  run jq -r '.metadata.version' "$result"
+  assert_output "test-meta"
+
+  run jq -r '.metadata.authors' "$result"
+  assert_output "Test Author <test@example.com>"
+
+  run jq -r '.metadata.docsURL' "$result"
+  assert_output "https://github.com/Patagia/argocd-verify-cmp"
+
+  run jq -r '.metadata.sourceURL' "$result"
+  assert_output "https://github.com/Patagia/argocd-verify-cmp/commit/abc1234567890abcdef1234567890abcdef123456"
+}
+
+# 4: unsigned image rejected
 
 @test "unsigned_image_rejected" {
   push_image "inttest/app" "t3"

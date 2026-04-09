@@ -11,20 +11,32 @@ REGISTRY_PASS="testpass"
 BINARY="$REPO_ROOT/bin/verify-cmp"
 FIXTURES="$HELPERS_DIR/fixtures"
 TESTENV="$HELPERS_DIR/.testenv"
+# WORKDIR simulates the per-request temp dir ArgoCD creates for each sync.
+# Both fetch and generate run here so relative paths (e.g. extractDir: manifests)
+# resolve consistently between the two commands.
+WORKDIR="$TESTENV/workdir"
 
 export DOCKER_CONFIG="$TESTENV/auth"
 
 # OCI helpers
 
-# push_image REPO TAG — push a minimal OCI image (no artifactType).
+# push_image REPO TAG — push a minimal OCI image with standard OCI annotations.
 push_image() {
   local repo=$1 tag=$2
   local cfg; cfg="$(mktemp)"
+  local created; created="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo '{}' > "$cfg"
   oras push "$REGISTRY/$repo:$tag" \
     --config "$cfg:application/vnd.oci.image.config.v1+json" \
     --plain-http \
-    --disable-path-validation 2>/dev/null
+    --disable-path-validation \
+    --annotation "org.opencontainers.image.version=test-${tag}" \
+    --annotation "org.opencontainers.image.authors=Test Author <test@example.com>" \
+    --annotation "org.opencontainers.image.source=https://github.com/Patagia/argocd-verify-cmp" \
+    --annotation "org.opencontainers.image.revision=abc1234567890abcdef1234567890abcdef123456" \
+    --annotation "org.opencontainers.image.description=Test app image for argocd-verify-cmp integration tests" \
+    --annotation "org.opencontainers.image.created=${created}" \
+    2>/dev/null
   rm -f "$cfg"
 }
 
@@ -84,19 +96,22 @@ attest() {
 
 # verify-cmp helpers
 
-# run_fetch REPO TAG CONFIG — invoke verify-cmp fetch directly.
+# run_fetch REPO TAG CONFIG — invoke verify-cmp fetch from WORKDIR, simulating
+# the per-request temp dir ArgoCD provides.
 run_fetch() {
   local repo=$1 tag=$2 config=$3
-  ARGOCD_APP_SOURCE_REPO_URL="oci://$REGISTRY/$repo" \
-  ARGOCD_APP_SOURCE_TARGET_REVISION="$tag" \
-  VERIFY_CMP_CONFIG="$config" \
-    "$BINARY" fetch
+  (cd "$WORKDIR" && \
+    ARGOCD_APP_SOURCE_REPO_URL="oci://$REGISTRY/$repo" \
+    ARGOCD_APP_SOURCE_TARGET_REVISION="$tag" \
+    VERIFY_CMP_CONFIG="$config" \
+      "$BINARY" fetch)
 }
 
-# run_generate CONFIG [SUBPATH] — invoke verify-cmp generate, print stdout.
+# run_generate CONFIG [SUBPATH] — invoke verify-cmp generate from WORKDIR.
 run_generate() {
   local config=$1 subpath=${2:-""}
-  VERIFY_CMP_CONFIG="$config" \
-  ARGOCD_APP_SOURCE_PATH="$subpath" \
-    "$BINARY" generate
+  (cd "$WORKDIR" && \
+    VERIFY_CMP_CONFIG="$config" \
+    ARGOCD_APP_SOURCE_PATH="$subpath" \
+      "$BINARY" generate)
 }

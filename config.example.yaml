@@ -42,7 +42,7 @@ registry:
 
 referrers:
   manifestMediaType: application/vnd.acme.k8s-manifests.v1+tar
-  extractDir: /tmp/manifests
+  extractDir: manifests
   enableTagFallback: true
   # If the source ref's artifactType matches manifestMediaType, it is treated as
   # a standalone bundle and extracted directly (no referrers query needed).

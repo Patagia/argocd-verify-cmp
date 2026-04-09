@@ -132,6 +132,11 @@ func runFetch(_ *cobra.Command, _ []string) error {
 	}
 	resolvedRevision := headDesc.Digest.String()
 
+	// Best-effort: read OCI image labels for the UI metadata panel.
+	// Returns nil for raw artifacts (e.g. oras-pushed bundles) that carry no
+	// standard image config.
+	meta := fetchMetadata(ref, gcrOpts)
+
 	// Determine discovery path: inspect the artifactType of the source ref.
 	// If it matches the configured bundle media type, the source IS the bundle
 	// (standalone). Otherwise treat it as the app image and look for referrers.
@@ -173,18 +178,73 @@ func runFetch(_ *cobra.Command, _ []string) error {
 		}
 	}
 
-	return writeFetchResult(resolvedRevision, "Verified OK")
+	return writeFetchResult(resolvedRevision, "Verified OK", meta)
+}
+
+// FetchResultMetadata holds optional OCI-image-label metadata to surface in
+// the ArgoCD UI revision panel. All fields are sourced from standard
+// org.opencontainers.image.* labels and are omitted when empty.
+type FetchResultMetadata struct {
+	Version     string `json:"version,omitempty"`
+	Description string `json:"description,omitempty"`
+	Authors     string `json:"authors,omitempty"`
+	CreatedAt   string `json:"createdAt,omitempty"`
+	SourceURL   string `json:"sourceURL,omitempty"`
+	DocsURL     string `json:"docsURL,omitempty"`
+}
+
+// fetchMetadata reads OCI manifest annotations from ref and returns a populated
+// FetchResultMetadata, or nil when no useful annotations are present. Using
+// manifest annotations (set via `oras --annotation`) works for both regular
+// OCI images and raw artifacts.
+func fetchMetadata(ref name.Reference, gcrOpts []gcrremote.Option) *FetchResultMetadata {
+	rd, err := gcrremote.Get(ref, gcrOpts...)
+	if err != nil {
+		return nil
+	}
+	var manifest struct {
+		Annotations map[string]string `json:"annotations"`
+	}
+	if err := json.Unmarshal(rd.Manifest, &manifest); err != nil || len(manifest.Annotations) == 0 {
+		return nil
+	}
+	ann := manifest.Annotations
+
+	source := ann["org.opencontainers.image.source"]
+	gitRev := ann["org.opencontainers.image.revision"]
+
+	m := &FetchResultMetadata{
+		Version:     ann["org.opencontainers.image.version"],
+		Description: ann["org.opencontainers.image.description"],
+		Authors:     ann["org.opencontainers.image.authors"],
+		CreatedAt:   ann["org.opencontainers.image.created"],
+		DocsURL:     source,
+	}
+	switch {
+	case source != "" && gitRev != "":
+		m.SourceURL = source + "/commit/" + gitRev
+	case source != "":
+		m.SourceURL = source
+	}
+
+	if m.Version == "" && m.Description == "" && m.Authors == "" &&
+		m.CreatedAt == "" && m.SourceURL == "" && m.DocsURL == "" {
+		return nil
+	}
+	return m
 }
 
 // writeFetchResult writes .argocd-cmp-fetch-result.json to the current working
 // directory so ArgoCD can surface the resolved revision and verify output.
-func writeFetchResult(revision, verifyResult string) error {
+func writeFetchResult(revision, verifyResult string, meta *FetchResultMetadata) error {
 	result := struct {
-		Revision     string `json:"revision,omitempty"`
-		VerifyResult string `json:"verifyResult,omitempty"`
+		Revision     string               `json:"revision,omitempty"`
+		VerifyResult string               `json:"verifyResult,omitempty"`
+		Metadata     *FetchResultMetadata `json:"metadata,omitempty"`
 	}{
 		Revision:     revision,
 		VerifyResult: verifyResult,
+		Metadata:     meta,
 	}
 	data, err := json.Marshal(result)
 	if err != nil {
